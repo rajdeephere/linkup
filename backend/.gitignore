@@ -1,0 +1,16 @@
+# --- Java / Maven ---
+target/
+*.class
+*.jar
+*.war
+!.mvn/wrapper/maven-wrapper.jar
+
+# --- IDE ---
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# --- Env / secrets ---
+.env
+*.local
