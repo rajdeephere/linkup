@@ -1,0 +1,46 @@
+# LinkUp local dev infrastructure.
+#
+# Phase 0 only needs Postgres (the relational metadata + message store while we
+# keep everything in one DB). Redis is included now because Phase 1 (presence,
+# typing, last-seen) and Phase 2 (Pub/Sub fan-out) lean on it heavily, and having
+# it running from the start costs nothing and avoids a later compose edit.
+#
+# Kafka / Cassandra / MinIO are deliberately NOT here yet — they arrive in
+# Phase 2/3 when the golden rule (correct-on-one-server first) says we've earned them.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: linkup-postgres
+    environment:
+      POSTGRES_DB: linkup
+      POSTGRES_USER: linkup
+      POSTGRES_PASSWORD: linkup
+    ports:
+      # Host 5433 → container 5432: avoids clashing with a native Postgres on 5432.
+      - "5433:5432"
+    volumes:
+      - linkup-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U linkup -d linkup"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: linkup-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - linkup-redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  linkup-pgdata:
+  linkup-redisdata:
