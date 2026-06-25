@@ -1,0 +1,27 @@
+<div class="home">
+  <header>
+    <h1>LinkUp</h1>
+    <button (click)="logout()">Log out</button>
+  </header>
+
+  <section class="card">
+    <h2>You're connected 🎉</h2>
+
+    @if (session(); as s) {
+      <p>Logged in as <strong>{{ s.displayName }}</strong> (&#64;{{ s.username }})</p>
+      <p class="muted">deviceId: {{ s.deviceId }}</p>
+    }
+
+    <h3>GET /v1/users/me</h3>
+    @if (me(); as m) {
+      <pre>{{ m | json }}</pre>
+      <p class="ok">✓ Protected endpoint reached — the JWT round-trips correctly.</p>
+    } @else if (error()) {
+      <p class="error">{{ error() }}</p>
+    } @else {
+      <p class="muted">Loading profile…</p>
+    }
+
+    <p class="next">Next: conversations list (Day 2) and real-time messaging (Day 3+).</p>
+  </section>
+</div>
