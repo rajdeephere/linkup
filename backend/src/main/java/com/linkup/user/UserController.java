@@ -2,12 +2,15 @@ package com.linkup.user;
 
 import com.linkup.auth.AppUserPrincipal;
 import com.linkup.user.dto.MeResponse;
+import com.linkup.user.dto.UserSummary;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
 
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
@@ -33,5 +36,17 @@ public class UserController {
         User user = userRepository.findById(principal.getId())
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "User no longer exists"));
         return ResponseEntity.ok(MeResponse.from(user));
+    }
+
+    /**
+     * Everyone except me — powers the "start a conversation" picker on the client.
+     * (A real app would paginate/search; fine for the portfolio scale.)
+     */
+    @GetMapping
+    public ResponseEntity<List<UserSummary>> listOthers(@AuthenticationPrincipal AppUserPrincipal principal) {
+        List<UserSummary> others = userRepository.findByIdNot(principal.getId()).stream()
+                .map(UserSummary::from)
+                .toList();
+        return ResponseEntity.ok(others);
     }
 }
