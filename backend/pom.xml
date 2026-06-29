@@ -34,6 +34,12 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+        <!-- WebSocket + STOMP: the real-time transport (Day 3). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+
         <!-- Security: authentication/authorization; we use it for JWT + BCrypt. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

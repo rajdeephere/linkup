@@ -50,6 +50,9 @@ public class SecurityConfig {
                         // Public: registration + login. Everything else needs a token.
                         .requestMatchers(HttpMethod.POST, "/v1/auth/**").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
+                        // The WS HTTP handshake is permitted here; the real auth happens at the
+                        // STOMP CONNECT frame (JWT → principal) in StompAuthChannelInterceptor.
+                        .requestMatchers("/ws/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
