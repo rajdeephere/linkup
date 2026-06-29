@@ -1,27 +1,65 @@
 <div class="home">
   <header>
     <h1>LinkUp</h1>
+    @if (session(); as s) {
+      <span class="me">{{ s.displayName }} (&#64;{{ s.username }})</span>
+    }
     <button (click)="logout()">Log out</button>
   </header>
 
-  <section class="card">
-    <h2>You're connected 🎉</h2>
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
 
-    @if (session(); as s) {
-      <p>Logged in as <strong>{{ s.displayName }}</strong> (&#64;{{ s.username }})</p>
-      <p class="muted">deviceId: {{ s.deviceId }}</p>
-    }
+  <div class="layout">
+    <!-- Conversation list -->
+    <section class="list">
+      <h2>Conversations</h2>
+      @if (conversations().length === 0) {
+        <p class="muted">No conversations yet — start one →</p>
+      } @else {
+        @for (c of conversations(); track c.id) {
+          <div class="convo">
+            <span class="badge" [class.group]="c.type === 'GROUP'">
+              {{ c.type === 'GROUP' ? 'GROUP' : '1:1' }}
+            </span>
+            <div class="convo-text">
+              <strong>{{ label(c) }}</strong>
+              <small>{{ subtitle(c) }}</small>
+            </div>
+          </div>
+        }
+      }
+    </section>
 
-    <h3>GET /v1/users/me</h3>
-    @if (me(); as m) {
-      <pre>{{ m | json }}</pre>
-      <p class="ok">✓ Protected endpoint reached — the JWT round-trips correctly.</p>
-    } @else if (error()) {
-      <p class="error">{{ error() }}</p>
-    } @else {
-      <p class="muted">Loading profile…</p>
-    }
+    <!-- New conversation -->
+    <section class="new">
+      <h2>New conversation</h2>
 
-    <p class="next">Next: conversations list (Day 2) and real-time messaging (Day 3+).</p>
-  </section>
+      <div class="types">
+        <button [class.active]="type() === 'DIRECT'" (click)="setType('DIRECT')">Direct (1:1)</button>
+        <button [class.active]="type() === 'GROUP'" (click)="setType('GROUP')">Group</button>
+      </div>
+
+      @if (type() === 'GROUP') {
+        <input class="title" placeholder="Group title" [ngModel]="title()" (ngModelChange)="title.set($event)" />
+      }
+
+      <p class="pick">{{ type() === 'DIRECT' ? 'Pick one person:' : 'Pick members:' }}</p>
+      <div class="users">
+        @for (u of users(); track u.id) {
+          <label class="user" [class.checked]="selected().has(u.id)">
+            <input type="checkbox" [checked]="selected().has(u.id)" (change)="toggleUser(u.id)" />
+            {{ u.displayName }} <small>&#64;{{ u.username }}</small>
+          </label>
+        } @empty {
+          <p class="muted">No other users yet — register a second account in another tab.</p>
+        }
+      </div>
+
+      <button class="create" [disabled]="!canCreate() || creating()" (click)="create()">
+        {{ creating() ? 'Creating…' : 'Create conversation' }}
+      </button>
+    </section>
+  </div>
 </div>
