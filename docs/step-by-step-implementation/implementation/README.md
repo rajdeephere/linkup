@@ -6,7 +6,7 @@ Why it's done this way · Verify.** Code lives in the app repo (`linkup/backend`
 | # | Day | Topic | Status |
 |---|-----|-------|--------|
 | [01](./01-day1-auth-and-domain.md) | 1 | Auth + `User`/`Device` domain + `/me` + Angular login/home + SocketService stub | ✅ full |
-| 02 | 2 | Conversations + participants (REST) + conversation-list view | ⬜ outline |
+| [02](./02-day2-conversations.md) | 2 | Conversations + participants (REST) + conversation-list view | ✅ full |
 | 03 | 3 | WebSocket/STOMP transport + auth handshake + live SocketService | ⬜ outline |
 | 04 | 4 | Send/receive, server-assigned `seq`, `seq`-ordered render | ⬜ outline |
 | 05 | 5 | Idempotent send (`clientMsgId`) + dedup + optimistic UI | ⬜ outline |
