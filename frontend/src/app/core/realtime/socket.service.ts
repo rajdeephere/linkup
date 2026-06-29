@@ -1,14 +1,14 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
+import { Client, IMessage } from '@stomp/stompjs';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
+import { environment } from '../../../environments/environment';
+import { TokenStorage } from '../auth/token-storage';
 
-/**
- * Connection lifecycle states the UI reacts to (reconnect banner, etc).
- */
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 
 /**
- * Placeholder shape for an inbound real-time message. Fleshed out in Day 4 when the
- * server assigns `seq` and we render in `seq` order.
+ * An inbound real-time message. Fully exercised in Day 4 when the server assigns `seq`
+ * and we render in `seq` order with `clientMsgId` dedup.
  */
 export interface InboundMessage {
   conversationId: string;
@@ -20,39 +20,60 @@ export interface InboundMessage {
 }
 
 /**
- * SocketService — STUB (Day 1).
+ * Real-time transport — a STOMP-over-WebSocket client (Day 3 makes the Day-1 stub live).
  *
- * This is intentionally a stub: the real WebSocket/STOMP transport lands in Day 3.
- * But the *architecture* (ADR-9) is established now so the rest of the app codes against
- * stable observable streams from the start:
+ * The socket is modelled as RxJS streams (ADR-9): feature code subscribes to `connection$`
+ * and `messages$` and never touches the STOMP client directly. The public surface is
+ * unchanged from the stub, so nothing that depended on it needs to change.
  *
- *   - connection$  — the socket's lifecycle as a stream (drives the reconnect banner)
- *   - messages$    — inbound messages (will be deduped on clientMsgId, ordered by seq)
- *
- * Modelling the socket as RxJS streams is the whole reason we chose Angular: incoming
- * messages, presence, typing, receipts, and connection state are all *streams*, and
- * RxJS expresses them (merge, scan-into-state, debounce, retryWithBackoff) far more
- * cleanly than imperative event handlers. Day 3 fills in connect()/send() over a real
- * socket without changing this public surface — that stability is the point of the stub.
+ * Auth: the JWT is sent on the STOMP CONNECT frame ("Authorization" header); the server
+ * verifies it and binds the principal to the session (StompAuthChannelInterceptor).
  */
 @Injectable({ providedIn: 'root' })
 export class SocketService {
+  private storage = inject(TokenStorage);
+  private client: Client | null = null;
+
   private readonly _connection = new BehaviorSubject<ConnectionState>('disconnected');
   private readonly _messages = new Subject<InboundMessage>();
 
-  /** Hot stream of connection state; starts 'disconnected'. */
+  /** Hot stream of connection state — drives the reconnect indicator. */
   readonly connection$: Observable<ConnectionState> = this._connection.asObservable();
-
-  /** Hot stream of inbound messages. */
+  /** Hot stream of inbound messages (deduped/ordered by the consumer in Day 4). */
   readonly messages$: Observable<InboundMessage> = this._messages.asObservable();
 
-  /** Day 3: open a STOMP-over-WebSocket connection, authenticate, subscribe queues. */
   connect(): void {
-    // Stub — no real socket yet. Logged so the wiring is visibly in place.
-    console.info('[SocketService] connect() stub — real WebSocket transport arrives in Day 3.');
+    if (this.client?.active) return;
+    const token = this.storage.token;
+    if (!token) return;
+
+    this._connection.next('connecting');
+    this.client = new Client({
+      brokerURL: environment.wsUrl,
+      connectHeaders: { Authorization: `Bearer ${token}` },
+      reconnectDelay: 2000, // stompjs auto-reconnects; richer backoff+jitter comes in Phase 2
+      heartbeatIncoming: 10000,
+      heartbeatOutgoing: 10000,
+      onConnect: () => {
+        this._connection.next('connected');
+        // My inbound queue. Spring routes /user/queue/messages to THIS session's principal.
+        this.client!.subscribe('/user/queue/messages', (frame: IMessage) => {
+          this._messages.next(JSON.parse(frame.body) as InboundMessage);
+        });
+      },
+      onWebSocketClose: () => {
+        // If the client is still active, stompjs will retry → show 'reconnecting'.
+        this._connection.next(this.client?.active ? 'reconnecting' : 'disconnected');
+      },
+      onStompError: (frame) =>
+        console.error('[SocketService] STOMP error:', frame.headers['message']),
+    });
+    this.client.activate();
   }
 
   disconnect(): void {
+    void this.client?.deactivate();
+    this.client = null;
     this._connection.next('disconnected');
   }
 }

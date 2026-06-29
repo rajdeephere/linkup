@@ -5,6 +5,6 @@
 export const environment = {
   production: false,
   apiBaseUrl: 'http://localhost:8081',
-  // WebSocket endpoint is wired in Day 3; kept here so config lives in one place.
-  wsUrl: 'http://localhost:8081/ws',
+  // Native WebSocket STOMP endpoint (no SockJS — only dep is @stomp/stompjs).
+  wsUrl: 'ws://localhost:8081/ws',
 };
