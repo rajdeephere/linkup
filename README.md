@@ -38,9 +38,9 @@ This is a **distributed-systems** project wearing a chat app's clothes.
 
 | | |
 |---|---|
-| **Phase** | 0 — *correct chat on one server* (Day 2 of 15 ✅) |
-| **Shipped** | JWT auth · `User`/`Device` · conversations + participants (direct/group, dedup, membership authz) · Angular login + conversation-list view · `SocketService` stub |
-| **Next** | Day 3 — WebSocket/STOMP transport + auth handshake (the `SocketService` goes live) |
+| **Phase** | 0 — *correct chat on one server* (Day 3 of 15 ✅) |
+| **Shipped** | JWT auth · `User`/`Device` · conversations + participants (direct/group, dedup, membership authz) · **JWT-authenticated WebSocket/STOMP transport** (live `SocketService`) · Angular conversation-list + connection indicator |
+| **Next** | Day 4 — send/receive a message with server-assigned monotonic `seq` (the core loop) |
 
 Full milestone table → [`docs/requirement-execution-plan/`](./docs/requirement-execution-plan/).
 

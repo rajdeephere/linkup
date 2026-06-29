@@ -25,7 +25,7 @@ via Flyway ([ADR-0011](../adr/0011-flyway-schema.md)).
 ## Done when
 - [x] **Day 1:** log in / register, get a JWT, `GET /me` works; `User`+`Device` persisted.
 - [x] **Day 2:** create a 1:1 and a group; list my conversations.
-- [ ] **Day 3:** two tabs connect over STOMP; server logs both principals.
+- [x] **Day 3:** two tabs connect over STOMP; server logs both principals.
 - [ ] **Day 4:** type in tab A → appears in tab B in real time, in `seq` order.
 - [ ] **Day 5:** double-tap send on a throttled network → message appears **once**.
 - [ ] **Day 6:** scroll months of history; go "offline," send, reconnect → missed messages appear in order.
