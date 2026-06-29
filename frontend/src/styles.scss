@@ -1,1 +1,87 @@
-/* You can add global styles to this file, and also import other style files */
+/* ===========================================================================
+   LinkUp design system — CSS custom properties, themed light + dark.
+   ThemeService sets `data-theme="light|dark"` on <html>; everything reads vars.
+   =========================================================================== */
+
+:root,
+:root[data-theme='light'] {
+  --bg: #ffffff;
+  --bg-subtle: #f5f6f8;          /* app background */
+  --bg-elevated: #ffffff;        /* sidebar / cards */
+  --bg-hover: #eceef1;
+  --bg-active: #ebecfe;          /* selected conversation (accent-tinted) */
+  --bg-inset: #f0f1f4;           /* inputs */
+  --border: #e5e7eb;
+  --border-strong: #d6d9de;
+  --text: #16181d;
+  --text-muted: #6b7280;
+  --text-faint: #9aa0aa;
+  --accent: #5b5bf6;
+  --accent-hover: #4a4ae3;
+  --accent-soft: #ebecfe;
+  --on-accent: #ffffff;
+  --danger: #e5484d;
+  --success: #2ea043;
+  --warning: #d99a00;
+  --shadow: 0 1px 3px rgba(16, 18, 29, 0.08), 0 6px 24px rgba(16, 18, 29, 0.06);
+  --shadow-lg: 0 12px 40px rgba(16, 18, 29, 0.18);
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #0f1115;
+  --bg-subtle: #0b0d10;
+  --bg-elevated: #15181e;
+  --bg-hover: #1d212a;
+  --bg-active: #23263a;
+  --bg-inset: #1a1e25;
+  --border: #262a31;
+  --border-strong: #333842;
+  --text: #e7e9ec;
+  --text-muted: #8b909a;
+  --text-faint: #646a75;
+  --accent: #7c7cf9;
+  --accent-hover: #9696ff;
+  --accent-soft: #20223a;
+  --on-accent: #ffffff;
+  --danger: #ff6166;
+  --success: #3fb950;
+  --warning: #e3b341;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 8px 28px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.55);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Inter, Helvetica,
+    Arial, sans-serif;
+  background: var(--bg-subtle);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  font-size: 14px;
+  line-height: 1.5;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+button { font-family: inherit; }
+
+input, textarea {
+  font-family: inherit;
+  font-size: 14px;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-faint); background-clip: content-box; }

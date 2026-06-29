@@ -1,65 +1,135 @@
-<div class="home">
-  <header>
-    <h1>LinkUp</h1>
-    @if (session(); as s) {
-      <span class="me">{{ s.displayName }} (&#64;{{ s.username }})</span>
-    }
-    <button (click)="logout()">Log out</button>
-  </header>
+<div class="app">
+  <!-- ============================ SIDEBAR ============================ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="logo">L</span>
+      <span class="name">LinkUp</span>
+      <span class="conn conn-{{ connection() }}" title="WebSocket: {{ connection() }}">
+        <span class="dot"></span>
+      </span>
+    </div>
 
-  @if (error()) {
-    <p class="error">{{ error() }}</p>
-  }
+    <button class="new-btn" (click)="openCreate()">
+      <span>＋</span> New conversation
+    </button>
 
-  <div class="layout">
-    <!-- Conversation list -->
-    <section class="list">
-      <h2>Conversations</h2>
+    <div class="convos">
       @if (conversations().length === 0) {
-        <p class="muted">No conversations yet — start one →</p>
+        <p class="empty-hint">No conversations yet.<br />Start one above.</p>
       } @else {
         @for (c of conversations(); track c.id) {
-          <div class="convo">
-            <span class="badge" [class.group]="c.type === 'GROUP'">
-              {{ c.type === 'GROUP' ? 'GROUP' : '1:1' }}
+          <button
+            class="convo"
+            [class.active]="selected()?.id === c.id"
+            (click)="select(c)">
+            <app-avatar [name]="label(c)" [key]="avatarKey(c)" [size]="40" />
+            <span class="meta">
+              <span class="top">
+                <span class="title">{{ label(c) }}</span>
+                @if (c.type === 'GROUP') { <span class="tag">group</span> }
+              </span>
+              <span class="sub">{{ subtitle(c) }}</span>
             </span>
-            <div class="convo-text">
-              <strong>{{ label(c) }}</strong>
-              <small>{{ subtitle(c) }}</small>
-            </div>
-          </div>
+          </button>
         }
       }
-    </section>
+    </div>
 
-    <!-- New conversation -->
-    <section class="new">
-      <h2>New conversation</h2>
+    @if (session(); as s) {
+      <div class="user">
+        <app-avatar [name]="s.displayName" [key]="s.userId" [size]="34" />
+        <span class="who">
+          <span class="dn">{{ s.displayName }}</span>
+          <span class="un">&#64;{{ s.username }}</span>
+        </span>
+        <button class="icon" (click)="theme.toggle()" title="Toggle theme">
+          {{ theme.theme() === 'dark' ? '☀️' : '🌙' }}
+        </button>
+        <button class="icon" (click)="logout()" title="Log out">⏻</button>
+      </div>
+    }
+  </aside>
 
-      <div class="types">
-        <button [class.active]="type() === 'DIRECT'" (click)="setType('DIRECT')">Direct (1:1)</button>
-        <button [class.active]="type() === 'GROUP'" (click)="setType('GROUP')">Group</button>
+  <!-- ============================= MAIN ============================= -->
+  <main class="main">
+    @if (selected(); as c) {
+      <header class="thread-header">
+        <app-avatar [name]="label(c)" [key]="avatarKey(c)" [size]="38" />
+        <div class="info">
+          <span class="title">{{ label(c) }}</span>
+          <span class="sub">
+            @if (c.type === 'GROUP') {
+              {{ c.participants.length }} members ·
+              {{ joinNames(c) }}
+            } @else {
+              {{ subtitle(c) }}
+            }
+          </span>
+        </div>
+      </header>
+
+      <div class="thread">
+        <div class="thread-empty">
+          <span class="big">💬</span>
+          <p>No messages yet.</p>
+          <small>Real-time messaging arrives in Day 4 — say hi once it lands.</small>
+        </div>
       </div>
 
-      @if (type() === 'GROUP') {
-        <input class="title" placeholder="Group title" [ngModel]="title()" (ngModelChange)="title.set($event)" />
-      }
+      <footer class="composer">
+        <input type="text" placeholder="Messaging unlocks in Day 4…" disabled />
+        <button class="send" disabled>Send</button>
+      </footer>
+    } @else {
+      <div class="placeholder">
+        <span class="big">📨</span>
+        <h2>Welcome to LinkUp</h2>
+        <p>Select a conversation, or start a new one to get going.</p>
+        @if (error()) { <p class="error">{{ error() }}</p> }
+      </div>
+    }
+  </main>
 
-      <p class="pick">{{ type() === 'DIRECT' ? 'Pick one person:' : 'Pick members:' }}</p>
-      <div class="users">
-        @for (u of users(); track u.id) {
-          <label class="user" [class.checked]="selected().has(u.id)">
-            <input type="checkbox" [checked]="selected().has(u.id)" (change)="toggleUser(u.id)" />
-            {{ u.displayName }} <small>&#64;{{ u.username }}</small>
-          </label>
-        } @empty {
-          <p class="muted">No other users yet — register a second account in another tab.</p>
+  <!-- ========================= CREATE MODAL ========================= -->
+  @if (showCreate()) {
+    <div class="overlay" (click)="closeCreate()">
+      <div class="modal" (click)="$event.stopPropagation()">
+        <div class="modal-head">
+          <h3>New conversation</h3>
+          <button class="icon" (click)="closeCreate()">✕</button>
+        </div>
+
+        <div class="seg">
+          <button [class.on]="type() === 'DIRECT'" (click)="setType('DIRECT')">Direct (1:1)</button>
+          <button [class.on]="type() === 'GROUP'" (click)="setType('GROUP')">Group</button>
+        </div>
+
+        @if (type() === 'GROUP') {
+          <input class="title-input" placeholder="Group name" [ngModel]="title()" (ngModelChange)="title.set($event)" />
         }
-      </div>
 
-      <button class="create" [disabled]="!canCreate() || creating()" (click)="create()">
-        {{ creating() ? 'Creating…' : 'Create conversation' }}
-      </button>
-    </section>
-  </div>
+        <p class="pick-label">{{ type() === 'DIRECT' ? 'Choose someone' : 'Choose members' }}</p>
+        <div class="people">
+          @for (u of users(); track u.id) {
+            <button class="person" [class.on]="picked().has(u.id)" (click)="togglePick(u.id)">
+              <app-avatar [name]="u.displayName" [key]="u.id" [size]="32" />
+              <span class="pn">
+                <span class="dn">{{ u.displayName }}</span>
+                <span class="un">&#64;{{ u.username }}</span>
+              </span>
+              @if (picked().has(u.id)) { <span class="check">✓</span> }
+            </button>
+          } @empty {
+            <p class="empty-hint">No other users yet — register a second account to chat.</p>
+          }
+        </div>
+
+        @if (error()) { <p class="error">{{ error() }}</p> }
+
+        <button class="primary" [disabled]="!canCreate() || creating()" (click)="create()">
+          {{ creating() ? 'Creating…' : 'Create conversation' }}
+        </button>
+      </div>
+    </div>
+  }
 </div>

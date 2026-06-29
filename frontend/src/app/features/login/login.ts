@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
+import { ThemeService } from '../../core/theme/theme.service';
 
 /**
  * Login + register screen. One form toggles between the two modes.
@@ -19,6 +20,7 @@ export class Login {
   private fb = inject(FormBuilder);
   private auth = inject(AuthService);
   private router = inject(Router);
+  readonly theme = inject(ThemeService);
 
   mode = signal<'login' | 'register'>('login');
   error = signal<string | null>(null);
