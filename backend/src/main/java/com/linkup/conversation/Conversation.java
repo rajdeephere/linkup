@@ -47,4 +47,8 @@ public class Conversation {
 
     @Column(name = "last_message_at")
     private Instant lastMessageAt;
+
+    /** Highest seq assigned in this conversation; the source for the next message's seq (ADR-0002). */
+    @Column(name = "last_seq", nullable = false)
+    private long lastSeq;
 }
