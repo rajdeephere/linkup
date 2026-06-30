@@ -1,12 +1,10 @@
-# LinkUp local dev infrastructure.
+# LinkUp — full local stack: datastores + backend + frontend.
 #
-# Phase 0 only needs Postgres (the relational metadata + message store while we
-# keep everything in one DB). Redis is included now because Phase 1 (presence,
-# typing, last-seen) and Phase 2 (Pub/Sub fan-out) lean on it heavily, and having
-# it running from the start costs nothing and avoids a later compose edit.
+# `docker compose -f infra/docker-compose.yml up -d --build` brings up everything.
+# Inside the compose network, services reach each other by name (backend → postgres:5432).
+# The browser reaches the published host ports (frontend :4200, backend :8081).
 #
-# Kafka / Cassandra / MinIO are deliberately NOT here yet — they arrive in
-# Phase 2/3 when the golden rule (correct-on-one-server first) says we've earned them.
+# Kafka / Cassandra / MinIO are deliberately NOT here yet — they arrive in Phase 2/3.
 
 services:
   postgres:
@@ -40,6 +38,32 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  backend:
+    build:
+      context: ../backend
+    container_name: linkup-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # In-network DB host is the service name, not localhost:5433.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/linkup
+      SPRING_DATASOURCE_USERNAME: linkup
+      SPRING_DATASOURCE_PASSWORD: linkup
+      # Dev-only JWT secret (same as the app default so tokens stay valid). Override in prod.
+      LINKUP_JWT_SECRET: ZGV2LW9ubHktc2VjcmV0LWNoYW5nZS1tZS1pbi1wcm9kdWN0aW9uLTEyMzQ1Ng==
+    ports:
+      - "8081:8081"   # browser/REST/WebSocket hit localhost:8081
+
+  frontend:
+    build:
+      context: ../frontend
+    container_name: linkup-frontend
+    depends_on:
+      - backend
+    ports:
+      - "4200:80"     # nginx serves the Angular bundle; browser origin = http://localhost:4200
 
 volumes:
   linkup-pgdata:
