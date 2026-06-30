@@ -141,11 +141,51 @@
 
   .thread {
     flex: 1;
-    display: flex;
     overflow-y: auto;
     background:
       radial-gradient(600px 300px at 50% 0%, var(--accent-soft), transparent 60%),
       var(--bg);
+
+    .thread-empty {
+      height: 100%;
+    }
+
+    .bubbles {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      padding: 1.1rem 1.3rem;
+    }
+
+    .row {
+      display: flex;
+      justify-content: flex-start;
+      &.mine { justify-content: flex-end; }
+    }
+
+    .bubble {
+      max-width: min(560px, 72%);
+      padding: 0.5rem 0.75rem;
+      border-radius: 14px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.9rem;
+      line-height: 1.35;
+      word-wrap: break-word;
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+
+      .sender { font-size: 0.72rem; font-weight: 700; color: var(--accent); }
+      .body { white-space: pre-wrap; }
+    }
+
+    .row.mine .bubble {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--on-accent);
+    }
   }
 
   .composer {

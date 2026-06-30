@@ -27,6 +27,21 @@ export class TokenStorage {
     return this.session?.accessToken ?? null;
   }
 
+  /**
+   * True if there's no token or its JWT `exp` is in the past. Lets us avoid opening a
+   * WebSocket with a token the server will reject (which would otherwise reconnect-loop).
+   */
+  isExpired(): boolean {
+    const t = this.token;
+    if (!t) return true;
+    try {
+      const payload = JSON.parse(atob(t.split('.')[1]));
+      return typeof payload.exp !== 'number' || payload.exp * 1000 <= Date.now();
+    } catch {
+      return true; // unparseable token → treat as expired
+    }
+  }
+
   save(session: Session): void {
     localStorage.setItem(KEY, JSON.stringify(session));
   }

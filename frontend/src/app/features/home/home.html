@@ -68,17 +68,37 @@
         </div>
       </header>
 
-      <div class="thread">
-        <div class="thread-empty">
-          <span class="big">💬</span>
-          <p>No messages yet.</p>
-          <small>Real-time messaging arrives in Day 4 — say hi once it lands.</small>
-        </div>
+      <div class="thread" #threadScroll>
+        @if (messages().length === 0) {
+          <div class="thread-empty">
+            <span class="big">💬</span>
+            <p>No messages yet.</p>
+            <small>Say hi — messages appear here in real time, in order.</small>
+          </div>
+        } @else {
+          <div class="bubbles">
+            @for (m of messages(); track m.clientMsgId) {
+              <div class="row" [class.mine]="isMine(m)">
+                <div class="bubble">
+                  @if (!isMine(m) && c.type === 'GROUP') {
+                    <span class="sender">{{ senderName(m) }}</span>
+                  }
+                  <span class="body">{{ m.body }}</span>
+                </div>
+              </div>
+            }
+          </div>
+        }
       </div>
 
       <footer class="composer">
-        <input type="text" placeholder="Messaging unlocks in Day 4…" disabled />
-        <button class="send" disabled>Send</button>
+        <input
+          type="text"
+          [ngModel]="draft()"
+          (ngModelChange)="draft.set($event)"
+          (keyup.enter)="sendMessage()"
+          [placeholder]="'Message ' + label(c) + '…'" />
+        <button class="send" [disabled]="!draft().trim()" (click)="sendMessage()">Send</button>
       </footer>
     } @else {
       <div class="placeholder">
