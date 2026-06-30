@@ -76,14 +76,13 @@ No cross-store transaction across Postgres↔Cassandra → handled via outbox/id
 
 ## 4. Current schema (shipped)
 
-### `V1__init_users_and_devices.sql` (Day 1)
-```sql
-users    (id uuid pk, username unique, display_name, password_hash,
-          status, created_at timestamptz)
-devices  (id uuid pk, user_id fk→users on delete cascade, platform,
-          push_token, public_identity_key, last_seen_at, created_at)
-          + index idx_devices_user_id (user_id)
-```
+- **`V1__init_users_and_devices.sql`** (Day 1) — `users`, `devices` (+ `idx_devices_user_id`).
+- **`V2__conversations_and_participants.sql`** (Day 2) — `conversations`, `participants`
+  (unique `(conversation_id, user_id)`, `last_read_seq`, role; FK indexes).
+- **`V3__messages.sql`** (Day 4) — `messages` (`seq`, `client_msg_id`, type, body, edited/deleted
+  tombstones; unique `(conversation_id, seq)` and `(conversation_id, client_msg_id)`; index
+  `(conversation_id, seq)`) + `conversations.last_seq` (the per-conversation seq counter).
+
 Schema is owned by **Flyway**; Hibernate runs `ddl-auto=validate` (asserts mappings match, never
 mutates). ([ADR-0011](./adr/0011-flyway-schema.md))
 
@@ -93,9 +92,7 @@ mutates). ([ADR-0011](./adr/0011-flyway-schema.md))
 
 | Migration | Adds | Phase / Day |
 |---|---|---|
-| `V2__conversations_participants.sql` | `conversations`, `participants` (+ `last_read_seq`) | Day 2 |
-| `V3__messages.sql` | `messages` (`seq`, `client_msg_id` unique per convo, type, body) + per-convo `seq` counter | Day 4 |
-| `V4__receipts.sql` | `receipts` (per recipient device) | Day 7 |
+| `V4__receipts.sql` | `receipts` (per recipient device) — drives the double-tick + unread | Day 7 |
 | `V5__attachments.sql` | `attachments` (blobKey, thumbnails) | Day 10 |
 | `V6__push_outbox.sql` | `push_outbox` | Day 11 |
 

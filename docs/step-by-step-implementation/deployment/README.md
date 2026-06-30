@@ -10,7 +10,7 @@ How to **run** LinkUp locally and (later) ship it. Each runbook: **Goal · Steps
 | # | Topic | Status |
 |---|-------|--------|
 | [01](./01-local-docker-dev.md) | Local dev: infra (Postgres+Redis) + backend + frontend | ✅ full |
-| 02 | Dockerize backend + frontend (multi-stage images) | ⬜ outline |
+| [02](./02-dockerize.md) | Dockerize backend + frontend — full stack in one compose | ✅ full |
 | 03 | Kubernetes (Helm charts) + CI/CD (GitHub Actions → build/test/push/deploy) | ⬜ outline |
 | 04 | Observability (OpenTelemetry → Prometheus / Grafana / Tempo / Loki) | ⬜ outline |
 | 05 | Multi-region (stretch): 2nd region WS tier + global routing | ⬜ outline |

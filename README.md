@@ -38,9 +38,9 @@ This is a **distributed-systems** project wearing a chat app's clothes.
 
 | | |
 |---|---|
-| **Phase** | 0 — *correct chat on one server* (Day 3 of 15 ✅) |
-| **Shipped** | JWT auth · `User`/`Device` · conversations + participants (direct/group, dedup, membership authz) · **JWT-authenticated WebSocket/STOMP transport** (live `SocketService`) · Angular conversation-list + connection indicator |
-| **Next** | Day 4 — send/receive a message with server-assigned monotonic `seq` (the core loop) |
+| **Phase** | 0 — *correct chat on one server* (Day 4 of 15 ✅) |
+| **Shipped** | JWT auth · conversations (direct/group, dedup, authz) · JWT-auth WebSocket/STOMP · **real-time messaging — server-assigned monotonic `seq`, idempotent send, exactly-once display, live chat thread** · light/dark redesigned client |
+| **Next** | Day 5 — optimistic send (render pending, reconcile on echo) + richer dedup |
 
 Full milestone table → [`docs/requirement-execution-plan/`](./docs/requirement-execution-plan/).
 
@@ -69,13 +69,21 @@ Deep dive → [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
 > Ports avoid a native Postgres (5432) and Apache (8080) on the dev machine.
 > **Postgres → 5433 · Redis → 6379 · Backend → 8081 · Frontend → 4200.**
 
+**Option A — everything in Docker (one command):**
 ```bash
-docker compose -f infra/docker-compose.yml up -d   # 1. infra
-cd backend  && mvn spring-boot:run                 # 2. API  → http://localhost:8081
-cd frontend && npm install && npm start            # 3. web  → http://localhost:4200
+docker compose -f infra/docker-compose.yml up -d --build
+# Postgres + Redis + backend (Spring Boot) + frontend (nginx) all come up.
+```
+
+**Option B — infra in Docker, apps on the host (hot-reload for dev):**
+```bash
+docker compose -f infra/docker-compose.yml up -d postgres redis   # just the datastores
+cd backend  && mvn spring-boot:run                                 # API  → http://localhost:8081
+cd frontend && npm install && npm start                            # web  → http://localhost:4200
 ```
 
 Open **http://localhost:4200** → register → land on the home page showing your `/me` profile.
+(Inside Docker the backend reaches the DB as `postgres:5432`; the browser hits the published `localhost:8081`.)
 
 <details>
 <summary>API smoke test (curl)</summary>
