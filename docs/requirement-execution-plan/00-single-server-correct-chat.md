@@ -27,7 +27,7 @@ via Flyway ([ADR-0011](../adr/0011-flyway-schema.md)).
 - [x] **Day 2:** create a 1:1 and a group; list my conversations.
 - [x] **Day 3:** two tabs connect over STOMP; server logs both principals.
 - [x] **Day 4:** type in tab A → appears in tab B in real time, in `seq` order.
-- [ ] **Day 5:** double-tap send on a throttled network → message appears **once**.
+- [x] **Day 5:** optimistic send on a throttled network → bubble appears instantly, reconciles on echo; double-tap → **once**.
 - [ ] **Day 6:** scroll months of history; go "offline," send, reconnect → missed messages appear in order.
 
 ## Maps to

@@ -38,9 +38,9 @@ This is a **distributed-systems** project wearing a chat app's clothes.
 
 | | |
 |---|---|
-| **Phase** | 0 — *correct chat on one server* (Day 4 of 15 ✅) |
-| **Shipped** | JWT auth · conversations (direct/group, dedup, authz) · JWT-auth WebSocket/STOMP · **real-time messaging — server-assigned monotonic `seq`, idempotent send, exactly-once display, live chat thread** · light/dark redesigned client |
-| **Next** | Day 5 — optimistic send (render pending, reconcile on echo) + richer dedup |
+| **Phase** | 0 — *correct chat on one server* (Day 5 of 15 ✅) |
+| **Shipped** | JWT auth · conversations (direct/group, dedup, authz) · JWT-auth WebSocket/STOMP · real-time messaging (monotonic `seq`, exactly-once display) · **optimistic send (instant bubble → reconcile on echo, retry)** · dockerized full stack · light/dark client |
+| **Next** | Day 6 — message history (cursor pagination) + reconnect/offline sync |
 
 Full milestone table → [`docs/requirement-execution-plan/`](./docs/requirement-execution-plan/).
 
