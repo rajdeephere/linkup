@@ -74,15 +74,17 @@ export class SocketService {
   }
 
   /**
-   * Send a text message to a conversation. The client generates the `clientMsgId` so the send
-   * is idempotent and the echo can be deduped (ADR-4). No-op if not connected.
+   * Send a text message. The caller supplies the `clientMsgId` so it can render the message
+   * optimistically and reconcile the echo by that id (ADR-4). Returns false if the socket
+   * isn't connected, so the caller can mark the message failed.
    */
-  send(conversationId: string, body: string): void {
-    if (!this.client?.connected) return;
+  send(conversationId: string, body: string, clientMsgId: string): boolean {
+    if (!this.client?.connected) return false;
     this.client.publish({
       destination: `/app/conversations/${conversationId}/send`,
-      body: JSON.stringify({ clientMsgId: crypto.randomUUID(), type: 'TEXT', body }),
+      body: JSON.stringify({ clientMsgId, type: 'TEXT', body }),
     });
+    return true;
   }
 
   disconnect(): void {

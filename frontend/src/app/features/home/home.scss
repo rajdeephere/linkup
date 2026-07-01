@@ -179,12 +179,34 @@
 
       .sender { font-size: 0.72rem; font-weight: 700; color: var(--accent); }
       .body { white-space: pre-wrap; }
+
+      .status {
+        align-self: flex-end;
+        font-size: 0.62rem;
+        line-height: 1;
+        margin-top: 0.1rem;
+        opacity: 0.85;
+
+        .retry {
+          border: none;
+          background: transparent;
+          color: inherit;
+          cursor: pointer;
+          font-size: 0.62rem;
+          padding: 0;
+          text-decoration: underline;
+        }
+      }
+
+      &.pending { opacity: 0.72; }
+      &.failed { border-color: var(--danger); }
     }
 
     .row.mine .bubble {
       background: var(--accent);
       border-color: var(--accent);
       color: var(--on-accent);
+      &.failed { background: color-mix(in srgb, var(--danger) 85%, black); border-color: var(--danger); }
     }
   }
 

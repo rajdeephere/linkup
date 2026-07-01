@@ -79,11 +79,22 @@
           <div class="bubbles">
             @for (m of messages(); track m.clientMsgId) {
               <div class="row" [class.mine]="isMine(m)">
-                <div class="bubble">
+                <div class="bubble" [class.pending]="m.status === 'pending'" [class.failed]="m.status === 'failed'">
                   @if (!isMine(m) && c.type === 'GROUP') {
                     <span class="sender">{{ senderName(m) }}</span>
                   }
                   <span class="body">{{ m.body }}</span>
+                  @if (isMine(m)) {
+                    <span class="status">
+                      @switch (m.status) {
+                        @case ('pending') { <span title="Sending…">🕓</span> }
+                        @case ('sent') { <span title="Sent">✓</span> }
+                        @case ('failed') {
+                          <button class="retry" (click)="retry(m)" title="Failed — tap to retry">✗ retry</button>
+                        }
+                      }
+                    </span>
+                  }
                 </div>
               </div>
             }

@@ -9,7 +9,7 @@ import {
   ConversationType,
   UserSummary,
 } from '../../core/conversations/conversation.models';
-import { Message } from '../../core/messages/message.models';
+import { ChatMessage, Message } from '../../core/messages/message.models';
 import { SocketService } from '../../core/realtime/socket.service';
 import { ThemeService } from '../../core/theme/theme.service';
 import { Avatar } from '../../shared/avatar';
@@ -42,7 +42,8 @@ export class Home {
   error = signal<string | null>(null);
 
   // messages bucketed by conversation id; the thread shows the selected one, ordered by seq
-  private messagesByConvo = signal<Map<string, Message[]>>(new Map());
+  private messagesByConvo = signal<Map<string, ChatMessage[]>>(new Map());
+  private localCounter = 0; // monotonic client-side order for pending messages
   readonly messages = computed(() => {
     const c = this.selected();
     return c ? this.messagesByConvo().get(c.id) ?? [] : [];
@@ -78,21 +79,87 @@ export class Home {
     });
   }
 
-  /** Bucket an inbound message into its conversation, deduped on clientMsgId, ordered by seq. */
+  /**
+   * A server message arrived. If it's the echo of one we sent optimistically (same
+   * clientMsgId), reconcile that pending bubble → sent (with the real seq/id); otherwise
+   * it's a new message from someone else. Deduped on clientMsgId, ordered by seq (ADR-2/4).
+   */
   private onMessage(m: Message): void {
-    const map = new Map(this.messagesByConvo());
-    const list = map.get(m.conversationId) ?? [];
-    if (list.some((x) => x.clientMsgId === m.clientMsgId)) return; // dedup the echo (ADR-4)
-    map.set(m.conversationId, [...list, m].sort((a, b) => a.seq - b.seq)); // order by seq (ADR-2)
-    this.messagesByConvo.set(map);
+    this.mutate(m.conversationId, (list) => {
+      const idx = list.findIndex((x) => x.clientMsgId === m.clientMsgId);
+      const confirmed: ChatMessage = {
+        ...m,
+        status: 'sent',
+        localSeq: idx >= 0 ? list[idx].localSeq : 0,
+      };
+      if (idx >= 0) {
+        const next = [...list];
+        next[idx] = confirmed; // pending → sent (or overwrite a duplicate)
+        return next;
+      }
+      return [...list, confirmed];
+    });
   }
 
   sendMessage(): void {
     const c = this.selected();
     const text = this.draft().trim();
     if (!c || !text) return;
-    this.socket.send(c.id, text);
+
+    // Optimistic: render immediately as 'pending' before the server round-trip.
+    const clientMsgId = crypto.randomUUID();
+    const optimistic: ChatMessage = {
+      id: clientMsgId,
+      conversationId: c.id,
+      senderId: this.session()!.userId,
+      clientMsgId,
+      seq: 0,
+      type: 'TEXT',
+      body: text,
+      createdAt: new Date().toISOString(),
+      status: 'pending',
+      localSeq: ++this.localCounter,
+    };
+    this.mutate(c.id, (list) =>
+      list.some((x) => x.clientMsgId === clientMsgId) ? list : [...list, optimistic],
+    );
     this.draft.set('');
+
+    // If the socket is down, mark it failed so the user can retry.
+    if (!this.socket.send(c.id, text, clientMsgId)) {
+      this.setStatus(c.id, clientMsgId, 'failed');
+    }
+  }
+
+  /** Re-send a message that failed. */
+  retry(m: ChatMessage): void {
+    const c = this.selected();
+    if (!c) return;
+    this.setStatus(c.id, m.clientMsgId, 'pending');
+    if (!this.socket.send(c.id, m.body, m.clientMsgId)) {
+      this.setStatus(c.id, m.clientMsgId, 'failed');
+    }
+  }
+
+  private setStatus(convoId: string, clientMsgId: string, status: ChatMessage['status']): void {
+    this.mutate(convoId, (list) =>
+      list.map((x) => (x.clientMsgId === clientMsgId ? { ...x, status } : x)),
+    );
+  }
+
+  /** Apply an update to a conversation's message list and re-sort (sent by seq, pending last). */
+  private mutate(convoId: string, fn: (list: ChatMessage[]) => ChatMessage[]): void {
+    const map = new Map(this.messagesByConvo());
+    const next = fn(map.get(convoId) ?? []).sort((a, b) => {
+      const ap = a.status !== 'sent';
+      const bp = b.status !== 'sent';
+      if (ap && bp) return a.localSeq - b.localSeq; // both un-acked → client order
+      if (ap) return 1; // pending/failed sort after confirmed
+      if (bp) return -1;
+      return a.seq - b.seq; // confirmed → server seq (ADR-2)
+    });
+    map.set(convoId, next);
+    this.messagesByConvo.set(map);
   }
 
   isMine(m: Message): boolean {

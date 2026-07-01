@@ -18,3 +18,12 @@ export interface SendMessageRequest {
   type: MessageType;
   body: string;
 }
+
+/** Client-side view of a message with local send state (for optimistic rendering). */
+export type SendStatus = 'pending' | 'sent' | 'failed';
+
+export interface ChatMessage extends Message {
+  status: SendStatus;
+  /** Local ordering for pending messages (before a server `seq` exists). */
+  localSeq: number;
+}
