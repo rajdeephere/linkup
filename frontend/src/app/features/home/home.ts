@@ -10,6 +10,7 @@ import {
   UserSummary,
 } from '../../core/conversations/conversation.models';
 import { ChatMessage, Message } from '../../core/messages/message.models';
+import { MessageService } from '../../core/messages/message.service';
 import { SocketService } from '../../core/realtime/socket.service';
 import { ThemeService } from '../../core/theme/theme.service';
 import { Avatar } from '../../shared/avatar';
@@ -29,6 +30,7 @@ import { Avatar } from '../../shared/avatar';
 export class Home {
   private auth = inject(AuthService);
   private convos = inject(ConversationService);
+  private msgApi = inject(MessageService);
   private router = inject(Router);
   private socket = inject(SocketService);
   readonly theme = inject(ThemeService);
@@ -49,7 +51,11 @@ export class Home {
     return c ? this.messagesByConvo().get(c.id) ?? [] : [];
   });
   draft = signal('');
+  loadingOlder = signal(false);
   private threadEl = viewChild<ElementRef<HTMLDivElement>>('threadScroll');
+  private stickToBottom = true;                 // auto-scroll only when the user is at the bottom
+  private loadedConvos = new Set<string>();     // convos whose initial history we've fetched
+  private historyExhausted = new Set<string>(); // convos with no older messages left
 
   // new-conversation modal state
   showCreate = signal(false);
@@ -66,16 +72,20 @@ export class Home {
   constructor() {
     this.socket.connect();
     this.socket.messages$.subscribe((m) => this.onMessage(m));
+    // On (re)connect, catch up the open conversation with anything missed while offline.
+    this.socket.connection$.subscribe((s) => {
+      if (s === 'connected') this.syncOpenConversation();
+    });
     this.refresh();
     this.convos.listUsers().subscribe({
       next: (u) => this.users.set(u),
       error: () => this.error.set('Could not load users.'),
     });
-    // auto-scroll the thread to the bottom whenever the visible messages change
+    // Keep the thread pinned to the bottom for new messages — but ONLY when the user is
+    // already at the bottom, so loading older history (scroll-back) doesn't yank them down.
     effect(() => {
       this.messages();
-      const el = this.threadEl()?.nativeElement;
-      if (el) queueMicrotask(() => (el.scrollTop = el.scrollHeight));
+      if (this.stickToBottom) this.scrollToBottomSoon();
     });
   }
 
@@ -105,6 +115,7 @@ export class Home {
     const c = this.selected();
     const text = this.draft().trim();
     if (!c || !text) return;
+    this.stickToBottom = true; // I just sent — keep me at the bottom
 
     // Optimistic: render immediately as 'pending' before the server round-trip.
     const clientMsgId = crypto.randomUUID();
@@ -186,6 +197,93 @@ export class Home {
 
   select(c: Conversation): void {
     this.selected.set(c);
+    this.stickToBottom = true;
+    // Load history the first time a conversation is opened (live-only before Day 6).
+    if (!this.loadedConvos.has(c.id)) {
+      this.loadedConvos.add(c.id);
+      this.msgApi.history(c.id, { limit: 50 }).subscribe({
+        next: (res) => {
+          this.mergeMessages(c.id, res.messages);
+          if (!res.hasMore) this.historyExhausted.add(c.id);
+          this.scrollToBottomSoon();
+        },
+        error: () => this.error.set('Could not load messages.'),
+      });
+    } else {
+      this.scrollToBottomSoon();
+    }
+  }
+
+  /** Fired on thread scroll: track bottom-stickiness, and page older history near the top. */
+  onThreadScroll(): void {
+    const el = this.threadEl()?.nativeElement;
+    if (!el) return;
+    this.stickToBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    if (el.scrollTop < 60) this.loadOlder();
+  }
+
+  /** Cursor-paginate older messages (scroll-back), preserving the scroll position. */
+  loadOlder(): void {
+    const c = this.selected();
+    if (!c || this.loadingOlder() || this.historyExhausted.has(c.id)) return;
+    const oldest = this.oldestSeq(c.id);
+    if (oldest == null) return;
+
+    this.loadingOlder.set(true);
+    const el = this.threadEl()?.nativeElement;
+    const prevHeight = el?.scrollHeight ?? 0;
+    this.msgApi.history(c.id, { before: oldest, limit: 50 }).subscribe({
+      next: (res) => {
+        this.mergeMessages(c.id, res.messages);
+        if (!res.hasMore) this.historyExhausted.add(c.id);
+        // keep the viewport anchored on the same message after prepending older ones
+        queueMicrotask(() => {
+          const e = this.threadEl()?.nativeElement;
+          if (e) e.scrollTop = e.scrollHeight - prevHeight;
+        });
+        this.loadingOlder.set(false);
+      },
+      error: () => this.loadingOlder.set(false),
+    });
+  }
+
+  /** After a (re)connect, pull anything newer than what we already have for the open convo. */
+  private syncOpenConversation(): void {
+    const c = this.selected();
+    if (!c || !this.loadedConvos.has(c.id)) return;
+    this.msgApi.history(c.id, { after: this.newestSeq(c.id) ?? 0, limit: 100 }).subscribe({
+      next: (res) => {
+        if (res.messages.length) this.mergeMessages(c.id, res.messages);
+      },
+    });
+  }
+
+  /** Merge a page of server messages into a conversation, deduped on clientMsgId. */
+  private mergeMessages(convoId: string, incoming: Message[]): void {
+    this.mutate(convoId, (list) => {
+      const known = new Set(list.map((x) => x.clientMsgId));
+      const additions: ChatMessage[] = incoming
+        .filter((m) => !known.has(m.clientMsgId))
+        .map((m) => ({ ...m, status: 'sent', localSeq: 0 }));
+      return additions.length ? [...list, ...additions] : list;
+    });
+  }
+
+  private oldestSeq(convoId: string): number | null {
+    const confirmed = (this.messagesByConvo().get(convoId) ?? []).filter((m) => m.status === 'sent');
+    return confirmed.length ? confirmed[0].seq : null; // list is seq-ascending
+  }
+
+  private newestSeq(convoId: string): number | null {
+    const confirmed = (this.messagesByConvo().get(convoId) ?? []).filter((m) => m.status === 'sent');
+    return confirmed.length ? confirmed[confirmed.length - 1].seq : null;
+  }
+
+  private scrollToBottomSoon(): void {
+    queueMicrotask(() => {
+      const el = this.threadEl()?.nativeElement;
+      if (el) el.scrollTop = el.scrollHeight;
+    });
   }
 
   // --- new-conversation modal ---

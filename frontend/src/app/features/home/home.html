@@ -68,7 +68,10 @@
         </div>
       </header>
 
-      <div class="thread" #threadScroll>
+      <div class="thread" #threadScroll (scroll)="onThreadScroll()">
+        @if (loadingOlder()) {
+          <div class="loading-older">Loading earlier messages…</div>
+        }
         @if (messages().length === 0) {
           <div class="thread-empty">
             <span class="big">💬</span>

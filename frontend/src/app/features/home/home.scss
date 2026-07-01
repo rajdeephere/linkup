@@ -150,6 +150,13 @@
       height: 100%;
     }
 
+    .loading-older {
+      text-align: center;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      padding: 0.6rem;
+    }
+
     .bubbles {
       display: flex;
       flex-direction: column;

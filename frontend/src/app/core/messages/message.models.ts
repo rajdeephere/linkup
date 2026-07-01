@@ -19,6 +19,12 @@ export interface SendMessageRequest {
   body: string;
 }
 
+/** A page of history/sync messages (always ascending seq). */
+export interface MessageHistoryResponse {
+  messages: Message[];
+  hasMore: boolean;
+}
+
 /** Client-side view of a message with local send state (for optimistic rendering). */
 export type SendStatus = 'pending' | 'sent' | 'failed';
 
