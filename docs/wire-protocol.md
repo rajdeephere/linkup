@@ -17,10 +17,12 @@ POST /v1/auth/register                  → 201 {accessToken, userId, username, 
 POST /v1/auth/login                     → 200 {accessToken, ...}                                        ✅
 GET  /v1/users/me                       → 200 {id, username, displayName, status, createdAt}            ✅
 
-GET  /v1/conversations                  → my conversations (last message, unread count)                 🔜 Day 2
-POST /v1/conversations                  → create direct/group                                           🔜 Day 2
-POST /v1/conversations/{id}/members     → add members (group)                                           🔜 Day 2
-GET  /v1/conversations/{id}/messages    → history, cursor-paginated (?before=seq&limit=50)              ⬜ Day 6
+GET  /v1/conversations                  → my conversations (participants)                                ✅
+POST /v1/conversations                  → create direct/group                                           ✅
+GET  /v1/conversations/{id}             → one conversation (member-gated)                               ✅
+POST /v1/conversations/{id}/members     → add members (group)                                           ✅
+GET  /v1/conversations/{id}/messages    → history/sync, cursor-paginated (?before|after=seq&limit)      ✅
+GET  /v1/users                          → other users (member picker)                                   ✅
 POST /v1/conversations/{id}/read        → advance lastReadSeq                                           ⬜ Day 7
 POST /v1/media/presign                  → presigned upload URL (returns blobKey)                        ⬜ Day 10
 GET  /v1/users/{id}/presence            → online / last-seen (privacy-gated)                            ⬜ Day 7

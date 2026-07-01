@@ -1,6 +1,6 @@
 # Phase 00 — Correct chat on one server
 
-**Status:** 🟡 in progress (Day 1 ✅) · **Roadmap:** Days 1–6
+**Status:** ✅ complete (Days 1–6) · **Roadmap:** Days 1–6
 
 ## Goal
 A **correct, ordered, idempotent, offline-tolerant** 1:1 + group chat running on a **single** server.
@@ -28,7 +28,9 @@ via Flyway ([ADR-0011](../adr/0011-flyway-schema.md)).
 - [x] **Day 3:** two tabs connect over STOMP; server logs both principals.
 - [x] **Day 4:** type in tab A → appears in tab B in real time, in `seq` order.
 - [x] **Day 5:** optimistic send on a throttled network → bubble appears instantly, reconciles on echo; double-tap → **once**.
-- [ ] **Day 6:** scroll months of history; go "offline," send, reconnect → missed messages appear in order.
+- [x] **Day 6:** scroll history; go "offline," send, reconnect → missed messages appear in order.
+
+**✅ Phase 0 complete** — a correct, ordered, idempotent, offline-tolerant 1:1 + group chat on one server.
 
 ## Maps to
 - ADRs: [0002 seq](../adr/0002-server-assigned-seq.md),
