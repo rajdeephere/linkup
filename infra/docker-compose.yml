@@ -46,11 +46,14 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
-      # In-network DB host is the service name, not localhost:5433.
+      # In-network hosts are service names, not localhost.
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/linkup
       SPRING_DATASOURCE_USERNAME: linkup
       SPRING_DATASOURCE_PASSWORD: linkup
+      SPRING_DATA_REDIS_HOST: redis
       # Dev-only JWT secret (same as the app default so tokens stay valid). Override in prod.
       LINKUP_JWT_SECRET: ZGV2LW9ubHktc2VjcmV0LWNoYW5nZS1tZS1pbi1wcm9kdWN0aW9uLTEyMzQ1Ng==
     ports:
