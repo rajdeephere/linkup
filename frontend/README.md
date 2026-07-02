@@ -43,6 +43,19 @@ npm test           # Karma/Jasmine
 
 Open **http://localhost:4200** → register → home page shows your `/me` profile.
 
+## Demos
+
+Browser-driven demos that **prove the delivery guarantees visually** (and double as smoke checks)
+live in [`e2e/`](./e2e) — kept in their own package so Playwright never enters the app build.
+
+```bash
+cd e2e && npm install && npx playwright install chromium
+npm run demo:optimistic      # optimistic send: pending 🕓 → sent ✓ (screenshots in e2e/output)
+```
+
+See [`e2e/README.md`](./e2e/README.md) for options and how to add more (cross-pod fan-out,
+pod-kill zero-loss, … as those scenarios ship).
+
 ## Layout
 
 ```

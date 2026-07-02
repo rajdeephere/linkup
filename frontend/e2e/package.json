@@ -1,0 +1,13 @@
+{
+  "name": "linkup-frontend-e2e",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Playwright demos that prove LinkUp's delivery guarantees visually (kept out of the app build).",
+  "scripts": {
+    "setup": "playwright install chromium",
+    "demo:optimistic": "node optimistic-send.demo.cjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  }
+}

@@ -11,6 +11,10 @@
 npm-debug.log
 yarn-error.log
 
+# e2e (Playwright demos) — commit the source, ignore deps + generated screenshots
+/e2e/node_modules
+/e2e/output
+
 # IDEs and editors
 .idea/
 .project
