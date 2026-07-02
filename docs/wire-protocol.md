@@ -23,9 +23,9 @@ GET  /v1/conversations/{id}             → one conversation (member-gated)     
 POST /v1/conversations/{id}/members     → add members (group)                                           ✅
 GET  /v1/conversations/{id}/messages    → history/sync, cursor-paginated (?before|after=seq&limit)      ✅
 GET  /v1/users                          → other users (member picker)                                   ✅
-POST /v1/conversations/{id}/read        → advance lastReadSeq                                           ⬜ Day 7
+POST /v1/conversations/{id}/read        → advance lastReadSeq (204)                                     ✅
+GET  /v1/users/{id}/presence            → {userId, online, lastSeenAt}                                  ✅
 POST /v1/media/presign                  → presigned upload URL (returns blobKey)                        ⬜ Day 10
-GET  /v1/users/{id}/presence            → online / last-seen (privacy-gated)                            ⬜ Day 7
 ```
 
 **Auth:** all routes except `/v1/auth/**` require `Authorization: Bearer <jwt>`.
@@ -47,10 +47,11 @@ GET  /v1/users/{id}/presence            → online / last-seen (privacy-gated)  
 ← MESSAGE /user/queue/messages             { id, seq, senderId, clientMsgId, type, body, createdAt }
                                              ← client dedups on clientMsgId, inserts by seq
 
-→ SEND  /app/conversations/{id}/typing     { state: start|stop }           ← ephemeral, debounced
-→ SEND  /app/messages/{id}/receipt         { state: delivered|read }
-← MESSAGE /user/queue/presence             { userId, status, lastSeenAt }
-← MESSAGE /user/queue/receipts             { messageId, deviceId, state }
+→ SEND  /app/conversations/{id}/typing     { state: start|stop }           ← ephemeral, debounced  ✅
+← MESSAGE /user/queue/typing               { conversationId, userId, typing }                       ✅
+← MESSAGE /user/queue/presence             { userId, online, lastSeenAt }                           ✅
+← MESSAGE /user/queue/receipts             { conversationId, userId, lastReadSeq }  ← read cursor    ✅
+    (read is advanced via POST /v1/conversations/{id}/read, not a STOMP frame)
 
 → SEND  /app/calls/{id}/signal             { sdp|ice }                     ← WebRTC signaling ⬜ Day 13
 ```

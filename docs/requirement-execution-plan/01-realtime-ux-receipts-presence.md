@@ -1,6 +1,6 @@
 # Phase 01 — Real-time UX: receipts, presence, typing
 
-**Status:** ⬜ · **Roadmap:** Days 6–7
+**Status:** 🟢 core done (Day 7) · **Roadmap:** Days 6–7
 
 ## Goal
 Make it **feel like a real messenger**: the double-tick (sent → delivered → read), presence
@@ -20,10 +20,13 @@ state here, not routing yet); media; push.
 Presence/typing are deliberately Redis-only and ephemeral (hard scenario #9).
 
 ## Done when
-- [ ] Read on one tab → ticks turn blue on the other (per-device receipt aggregation).
-- [ ] "online / last seen" reflects connect/disconnect; "X is typing…" appears and debounces.
-- [ ] Unread badge per conversation is correct via `lastReadSeq`.
-- [ ] Edit / delete / unsend propagates to all devices (tombstone + reconcile by `seq`).
+- [x] Read on one tab → ticks turn **blue** on the other (via `lastReadSeq` cursor, not a receipt table).
+- [x] "online / last seen" reflects connect/disconnect; "X is typing…" appears and debounces (Redis TTL).
+- [x] Unread badge per conversation is correct via `lastReadSeq` (`unread = lastSeq − lastReadSeq`).
+- [ ] Edit / delete / unsend propagates to all devices (tombstone + reconcile by `seq`) — *deferred (Day 12).*
+
+> Note: implemented read receipts via the `lastReadSeq` **cursor** (one int/participant) rather than a
+> per-device `Receipt` table — cheaper, and covers 1:1 + group the same way.
 
 ## Maps to
 - ADRs: [0008 push outbox](../adr/0008-push-outbox.md) (receipts groundwork),
