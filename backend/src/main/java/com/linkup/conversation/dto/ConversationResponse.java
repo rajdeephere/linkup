@@ -9,8 +9,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Public projection of a conversation + its participants. (Unread counts arrive once
- * messaging + lastReadSeq are wired up in Day 4+.)
+ * Public projection of a conversation + its participants, plus {@code unreadCount} for the
+ * requesting user (conversation.lastSeq − my lastReadSeq, floored at 0).
  */
 public record ConversationResponse(
         UUID id,
@@ -18,15 +18,17 @@ public record ConversationResponse(
         String title,
         Instant createdAt,
         Instant lastMessageAt,
+        long unreadCount,
         List<ParticipantSummary> participants
 ) {
-    public static ConversationResponse of(Conversation c, List<Participant> participants) {
+    public static ConversationResponse of(Conversation c, List<Participant> participants, long unreadCount) {
         return new ConversationResponse(
                 c.getId(),
                 c.getType(),
                 c.getTitle(),
                 c.getCreatedAt(),
                 c.getLastMessageAt(),
+                unreadCount,
                 participants.stream().map(ParticipantSummary::from).toList());
     }
 }

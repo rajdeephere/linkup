@@ -9,6 +9,12 @@ spring:
     password: linkup
     driver-class-name: org.postgresql.Driver
 
+  data:
+    redis:
+      # Ephemeral state (presence, typing) lives in Redis with TTLs — never Postgres.
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+
   jpa:
     hibernate:
       # 'validate' — Hibernate checks the entity mappings against the real schema

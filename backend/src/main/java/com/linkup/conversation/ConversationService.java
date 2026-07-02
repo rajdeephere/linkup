@@ -6,8 +6,10 @@ import com.linkup.common.NotFoundException;
 import com.linkup.conversation.dto.AddMembersRequest;
 import com.linkup.conversation.dto.ConversationResponse;
 import com.linkup.conversation.dto.CreateConversationRequest;
+import com.linkup.conversation.dto.ReadReceiptEvent;
 import com.linkup.user.User;
 import com.linkup.user.UserRepository;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,13 +34,16 @@ public class ConversationService {
     private final ConversationRepository conversationRepository;
     private final ParticipantRepository participantRepository;
     private final UserRepository userRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     public ConversationService(ConversationRepository conversationRepository,
                                ParticipantRepository participantRepository,
-                               UserRepository userRepository) {
+                               UserRepository userRepository,
+                               SimpMessagingTemplate messagingTemplate) {
         this.conversationRepository = conversationRepository;
         this.participantRepository = participantRepository;
         this.userRepository = userRepository;
+        this.messagingTemplate = messagingTemplate;
     }
 
     @Transactional
@@ -71,14 +76,14 @@ public class ConversationService {
         List<UUID> existing = participantRepository.findDirectConversationBetween(creator.getId(), other.getId());
         if (!existing.isEmpty()) {
             Conversation c = conversationRepository.findById(existing.get(0)).orElseThrow();
-            return respond(c);
+            return respond(c, creator.getId());
         }
 
         Conversation c = newConversation(ConversationType.DIRECT, null);
         conversationRepository.save(c);
         addParticipant(c, creator, ParticipantRole.MEMBER);
         addParticipant(c, other, ParticipantRole.MEMBER);
-        return respond(c);
+        return respond(c, creator.getId());
     }
 
     private ConversationResponse createGroup(User creator, List<User> otherUsers, String title) {
@@ -91,7 +96,7 @@ public class ConversationService {
         for (User u : otherUsers) {
             addParticipant(c, u, ParticipantRole.MEMBER);
         }
-        return respond(c);
+        return respond(c, creator.getId());
     }
 
     @Transactional(readOnly = true)
@@ -109,7 +114,10 @@ public class ConversationService {
 
         return conversationRepository.findAllById(convIds).stream()
                 .sorted(Comparator.comparing(this::recencyKey).reversed()) // most-recent first
-                .map(c -> ConversationResponse.of(c, byConvo.getOrDefault(c.getId(), List.of())))
+                .map(c -> {
+                    List<Participant> parts = byConvo.getOrDefault(c.getId(), List.of());
+                    return ConversationResponse.of(c, parts, unreadFor(c, parts, userId));
+                })
                 .toList();
     }
 
@@ -118,7 +126,7 @@ public class ConversationService {
         Conversation c = conversationRepository.findById(conversationId)
                 .orElseThrow(() -> new NotFoundException("Conversation not found"));
         assertMember(conversationId, userId);
-        return respond(c);
+        return respond(c, userId);
     }
 
     @Transactional
@@ -140,7 +148,25 @@ public class ConversationService {
                 addParticipant(c, u, ParticipantRole.MEMBER);
             }
         }
-        return respond(c);
+        return respond(c, actorId);
+    }
+
+    /**
+     * Advance my read cursor and notify the other participants (the blue double-tick).
+     * lastReadSeq only moves forward — a stale/lower seq is ignored.
+     */
+    @Transactional
+    public void markRead(UUID userId, UUID conversationId, long seq) {
+        Participant me = participantRepository.findByConversation_IdAndUser_Id(conversationId, userId)
+                .orElseThrow(() -> new ForbiddenException("You are not a participant of this conversation"));
+        if (seq <= me.getLastReadSeq()) {
+            return; // monotonic — never move the cursor backwards
+        }
+        me.setLastReadSeq(seq);
+        ReadReceiptEvent event = new ReadReceiptEvent(conversationId, userId, seq);
+        for (String peer : participantRepository.findOtherParticipantUsernames(conversationId, userId)) {
+            messagingTemplate.convertAndSendToUser(peer, "/queue/receipts", event);
+        }
     }
 
     // --- helpers ---
@@ -175,7 +201,18 @@ public class ConversationService {
         return c.getLastMessageAt() != null ? c.getLastMessageAt() : c.getCreatedAt();
     }
 
-    private ConversationResponse respond(Conversation c) {
-        return ConversationResponse.of(c, participantRepository.findByConversationIdFetchUser(c.getId()));
+    private ConversationResponse respond(Conversation c, UUID viewerId) {
+        List<Participant> parts = participantRepository.findByConversationIdFetchUser(c.getId());
+        return ConversationResponse.of(c, parts, unreadFor(c, parts, viewerId));
+    }
+
+    /** Unread = conversation.lastSeq − my lastReadSeq, floored at 0. */
+    private long unreadFor(Conversation c, List<Participant> parts, UUID viewerId) {
+        long myRead = parts.stream()
+                .filter(p -> p.getUser().getId().equals(viewerId))
+                .mapToLong(Participant::getLastReadSeq)
+                .findFirst()
+                .orElse(0L);
+        return Math.max(0, c.getLastSeq() - myRead);
     }
 }

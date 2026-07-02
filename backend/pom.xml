@@ -40,6 +40,12 @@
             <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
 
+        <!-- Redis: ephemeral presence/typing state with TTLs (Day 7). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
         <!-- Security: authentication/authorization; we use it for JWT + BCrypt. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

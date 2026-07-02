@@ -4,6 +4,7 @@ import com.linkup.auth.AppUserPrincipal;
 import com.linkup.conversation.dto.AddMembersRequest;
 import com.linkup.conversation.dto.ConversationResponse;
 import com.linkup.conversation.dto.CreateConversationRequest;
+import com.linkup.conversation.dto.ReadRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -59,5 +60,15 @@ public class ConversationController {
             @PathVariable UUID id,
             @Valid @RequestBody AddMembersRequest request) {
         return ResponseEntity.ok(conversationService.addMembers(principal.getId(), id, request));
+    }
+
+    /** Advance my read cursor → drives unread counts + the blue double-tick for the others. */
+    @PostMapping("/{id}/read")
+    public ResponseEntity<Void> read(
+            @AuthenticationPrincipal AppUserPrincipal principal,
+            @PathVariable UUID id,
+            @Valid @RequestBody ReadRequest request) {
+        conversationService.markRead(principal.getId(), id, request.seq());
+        return ResponseEntity.noContent().build();
     }
 }

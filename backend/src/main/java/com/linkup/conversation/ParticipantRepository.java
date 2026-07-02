@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface ParticipantRepository extends JpaRepository<Participant, UUID> {
@@ -16,6 +17,21 @@ public interface ParticipantRepository extends JpaRepository<Participant, UUID> 
 
     /** Membership check — the basis of every authorization decision on a conversation. */
     boolean existsByConversation_IdAndUser_Id(UUID conversationId, UUID userId);
+
+    /** My participant row in a conversation — used to read/advance lastReadSeq. */
+    Optional<Participant> findByConversation_IdAndUser_Id(UUID conversationId, UUID userId);
+
+    /** Usernames of everyone in a conversation except the given user (typing / read fan-out). */
+    @Query("select p.user.username from Participant p where p.conversation.id = :convId and p.user.id <> :userId")
+    List<String> findOtherParticipantUsernames(@Param("convId") UUID convId, @Param("userId") UUID userId);
+
+    /** Distinct usernames of people who share ANY conversation with the user (presence fan-out). */
+    @Query("""
+            select distinct p2.user.username from Participant p1, Participant p2
+            where p1.conversation.id = p2.conversation.id
+              and p1.user.id = :userId and p2.user.id <> :userId
+            """)
+    List<String> findPeerUsernames(@Param("userId") UUID userId);
 
     /** Participants of a conversation, with the User fetch-joined (avoids N+1 on the list). */
     @Query("select p from Participant p join fetch p.user where p.conversation.id = :convId")
