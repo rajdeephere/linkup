@@ -73,6 +73,7 @@
       &:hover { background: var(--bg-hover); }
       &.active { background: var(--bg-active); }
 
+      .av { position: relative; display: inline-flex; flex: none; }
       .meta { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
       .top { display: flex; align-items: center; gap: 0.4rem; }
       .title { font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -82,7 +83,22 @@
         background: var(--accent-soft); color: var(--accent); font-weight: 700;
       }
       .sub { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .unread {
+        margin-left: auto;
+        flex: none;
+        min-width: 20px; height: 20px; padding: 0 6px;
+        display: inline-flex; align-items: center; justify-content: center;
+        border-radius: 999px; background: var(--accent); color: var(--on-accent);
+        font-size: 0.7rem; font-weight: 700;
+      }
     }
+  }
+
+  // presence dot on avatars (sidebar + thread header)
+  .online-dot {
+    position: absolute; right: -1px; bottom: -1px;
+    width: 11px; height: 11px; border-radius: 50%;
+    background: var(--success); border: 2px solid var(--bg-elevated);
   }
 
   .user {
@@ -134,9 +150,18 @@
     border-bottom: 1px solid var(--border);
     background: var(--bg-elevated);
 
+    .av {
+      position: relative; display: inline-flex; flex: none;
+      .online-dot {
+        position: absolute; right: -1px; bottom: -1px;
+        width: 11px; height: 11px; border-radius: 50%;
+        background: var(--success); border: 2px solid var(--bg-elevated);
+      }
+    }
     .info { display: flex; flex-direction: column; min-width: 0; }
     .title { font-weight: 700; font-size: 0.98rem; }
     .sub { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sub.typing { color: var(--accent); font-style: italic; }
   }
 
   .thread {
@@ -203,6 +228,7 @@
           padding: 0;
           text-decoration: underline;
         }
+        .read { color: #7dd3fc; font-weight: 700; letter-spacing: -1px; } // blue double-tick
       }
 
       &.pending { opacity: 0.72; }

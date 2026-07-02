@@ -22,7 +22,10 @@
             class="convo"
             [class.active]="selected()?.id === c.id"
             (click)="select(c)">
-            <app-avatar [name]="label(c)" [key]="avatarKey(c)" [size]="40" />
+            <span class="av">
+              <app-avatar [name]="label(c)" [key]="avatarKey(c)" [size]="40" />
+              @if (isPeerOnline(c)) { <span class="online-dot" title="online"></span> }
+            </span>
             <span class="meta">
               <span class="top">
                 <span class="title">{{ label(c) }}</span>
@@ -30,6 +33,9 @@
               </span>
               <span class="sub">{{ subtitle(c) }}</span>
             </span>
+            @if (c.unreadCount > 0) {
+              <span class="unread">{{ c.unreadCount > 99 ? '99+' : c.unreadCount }}</span>
+            }
           </button>
         }
       }
@@ -54,17 +60,17 @@
   <main class="main">
     @if (selected(); as c) {
       <header class="thread-header">
-        <app-avatar [name]="label(c)" [key]="avatarKey(c)" [size]="38" />
+        <span class="av">
+          <app-avatar [name]="label(c)" [key]="avatarKey(c)" [size]="38" />
+          @if (isPeerOnline(c)) { <span class="online-dot"></span> }
+        </span>
         <div class="info">
           <span class="title">{{ label(c) }}</span>
-          <span class="sub">
-            @if (c.type === 'GROUP') {
-              {{ c.participants.length }} members ·
-              {{ joinNames(c) }}
-            } @else {
-              {{ subtitle(c) }}
-            }
-          </span>
+          @if (typingText(c); as t) {
+            <span class="sub typing">{{ t }}</span>
+          } @else {
+            <span class="sub">{{ presenceText(c) }}</span>
+          }
         </div>
       </header>
 
@@ -91,7 +97,13 @@
                     <span class="status">
                       @switch (m.status) {
                         @case ('pending') { <span title="Sending…">🕓</span> }
-                        @case ('sent') { <span title="Sent">✓</span> }
+                        @case ('sent') {
+                          @if (isRead(m)) {
+                            <span class="read" title="Read">✓✓</span>
+                          } @else {
+                            <span title="Sent">✓</span>
+                          }
+                        }
                         @case ('failed') {
                           <button class="retry" (click)="retry(m)" title="Failed — tap to retry">✗ retry</button>
                         }
@@ -109,7 +121,7 @@
         <input
           type="text"
           [ngModel]="draft()"
-          (ngModelChange)="draft.set($event)"
+          (ngModelChange)="onDraftInput($event)"
           (keyup.enter)="sendMessage()"
           [placeholder]="'Message ' + label(c) + '…'" />
         <button class="send" [disabled]="!draft().trim()" (click)="sendMessage()">Send</button>

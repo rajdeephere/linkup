@@ -5,7 +5,8 @@
   "description": "Playwright demos that prove LinkUp's delivery guarantees visually (kept out of the app build).",
   "scripts": {
     "setup": "playwright install chromium",
-    "demo:optimistic": "node optimistic-send.demo.cjs"
+    "demo:optimistic": "node optimistic-send.demo.cjs",
+    "demo:receipts": "node receipts-typing-presence.demo.cjs"
   },
   "devDependencies": {
     "playwright": "^1.48.0"

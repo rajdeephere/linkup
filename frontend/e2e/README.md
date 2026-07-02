@@ -28,7 +28,8 @@ window with `DEMO_HEADED=1 npm run demo:optimistic`.
 
 | Script | Proves | ADR / scenario |
 |--------|--------|----------------|
-| `optimistic-send.demo.cjs` | The message renders instantly as **pending** even while the server's echo is held (simulated slow link), then reconciles to **sent** by `clientMsgId` — no duplicate, no flicker | ADR-0004 · Day 5 |
+| `optimistic-send.demo.cjs` (`npm run demo:optimistic`) | The message renders instantly as **pending** even while the server's echo is held (simulated slow link), then reconciles to **sent** by `clientMsgId` — no duplicate, no flicker | ADR-0004 · Day 5 |
+| `receipts-typing-presence.demo.cjs` (`npm run demo:receipts`) | Two browsers: **presence** (online dot), **read receipts** (blue ✓✓ when the other reads), **typing** ("X is typing…") | Day 7 |
 
 It works by **intercepting the WebSocket** (`page.routeWebSocket`) and delaying only the
 server→client echo frame, so the pending window is long enough to see and screenshot.

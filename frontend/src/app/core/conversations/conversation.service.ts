@@ -25,4 +25,16 @@ export class ConversationService {
   listUsers(): Observable<UserSummary[]> {
     return this.http.get<UserSummary[]>(`${this.base}/v1/users`);
   }
+
+  /** Advance my read cursor (drives unread counts + the other side's blue tick). */
+  read(conversationId: string, seq: number): Observable<void> {
+    return this.http.post<void>(`${this.base}/v1/conversations/${conversationId}/read`, { seq });
+  }
+
+  /** On-demand presence for a user (real-time updates arrive on presence$). */
+  presence(userId: string): Observable<{ userId: string; online: boolean; lastSeenAt: string | null }> {
+    return this.http.get<{ userId: string; online: boolean; lastSeenAt: string | null }>(
+      `${this.base}/v1/users/${userId}/presence`,
+    );
+  }
 }

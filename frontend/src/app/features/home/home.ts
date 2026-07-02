@@ -11,15 +11,19 @@ import {
 } from '../../core/conversations/conversation.models';
 import { ChatMessage, Message } from '../../core/messages/message.models';
 import { MessageService } from '../../core/messages/message.service';
-import { SocketService } from '../../core/realtime/socket.service';
+import {
+  PresenceEvent,
+  SocketService,
+  TypingEvent,
+} from '../../core/realtime/socket.service';
 import { ThemeService } from '../../core/theme/theme.service';
 import { Avatar } from '../../shared/avatar';
 
 /**
- * The main app shell: a sidebar (conversations + new-chat + user/theme controls) and a
- * main panel (the selected conversation). Real-time messaging fills the main panel in Day 4;
- * for now it shows the conversation header + a placeholder thread + a disabled composer, so
- * the chat layout is already in place.
+ * The main app shell: a sidebar (conversations + unread badges + new-chat + user/theme
+ * controls) and the chat panel (thread + composer). Real-time: live messages, optimistic
+ * send, history/sync, presence (online/last-seen), typing indicators, and read receipts
+ * (the blue double-tick) + unread counts.
  */
 @Component({
   selector: 'app-home',
@@ -40,12 +44,23 @@ export class Home {
 
   conversations = signal<Conversation[]>([]);
   users = signal<UserSummary[]>([]);
-  selected = signal<Conversation | null>(null);
+  // selected is derived from conversations so receipt/unread updates flow into the thread
+  selectedId = signal<string | null>(null);
+  readonly selected = computed(
+    () => this.conversations().find((c) => c.id === this.selectedId()) ?? null,
+  );
   error = signal<string | null>(null);
+
+  // presence (userId → state) and typing (convId → set of userIds), both real-time
+  presenceByUser = signal<Map<string, PresenceEvent>>(new Map());
+  typingByConvo = signal<Map<string, Set<string>>>(new Map());
+  private typingTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private lastTypingSent = 0;
+  private stopTypingTimer?: ReturnType<typeof setTimeout>;
 
   // messages bucketed by conversation id; the thread shows the selected one, ordered by seq
   private messagesByConvo = signal<Map<string, ChatMessage[]>>(new Map());
-  private localCounter = 0; // monotonic client-side order for pending messages
+  private localCounter = 0;
   readonly messages = computed(() => {
     const c = this.selected();
     return c ? this.messagesByConvo().get(c.id) ?? [] : [];
@@ -53,9 +68,9 @@ export class Home {
   draft = signal('');
   loadingOlder = signal(false);
   private threadEl = viewChild<ElementRef<HTMLDivElement>>('threadScroll');
-  private stickToBottom = true;                 // auto-scroll only when the user is at the bottom
-  private loadedConvos = new Set<string>();     // convos whose initial history we've fetched
-  private historyExhausted = new Set<string>(); // convos with no older messages left
+  private stickToBottom = true;
+  private loadedConvos = new Set<string>();
+  private historyExhausted = new Set<string>();
 
   // new-conversation modal state
   showCreate = signal(false);
@@ -72,7 +87,16 @@ export class Home {
   constructor() {
     this.socket.connect();
     this.socket.messages$.subscribe((m) => this.onMessage(m));
-    // On (re)connect, catch up the open conversation with anything missed while offline.
+    this.socket.presence$.subscribe((p) => this.updatePresence(p));
+    this.socket.typing$.subscribe((t) => this.onTyping(t));
+    this.socket.receipts$.subscribe((r) =>
+      this.updateConversation(r.conversationId, (c) => ({
+        ...c,
+        participants: c.participants.map((p) =>
+          p.userId === r.userId ? { ...p, lastReadSeq: Math.max(p.lastReadSeq, r.lastReadSeq) } : p,
+        ),
+      })),
+    );
     this.socket.connection$.subscribe((s) => {
       if (s === 'connected') this.syncOpenConversation();
     });
@@ -81,43 +105,38 @@ export class Home {
       next: (u) => this.users.set(u),
       error: () => this.error.set('Could not load users.'),
     });
-    // Keep the thread pinned to the bottom for new messages — but ONLY when the user is
-    // already at the bottom, so loading older history (scroll-back) doesn't yank them down.
     effect(() => {
       this.messages();
       if (this.stickToBottom) this.scrollToBottomSoon();
     });
   }
 
-  /**
-   * A server message arrived. If it's the echo of one we sent optimistically (same
-   * clientMsgId), reconcile that pending bubble → sent (with the real seq/id); otherwise
-   * it's a new message from someone else. Deduped on clientMsgId, ordered by seq (ADR-2/4).
-   */
+  // --- inbound messages ---
+
   private onMessage(m: Message): void {
     this.mutate(m.conversationId, (list) => {
       const idx = list.findIndex((x) => x.clientMsgId === m.clientMsgId);
-      const confirmed: ChatMessage = {
-        ...m,
-        status: 'sent',
-        localSeq: idx >= 0 ? list[idx].localSeq : 0,
-      };
+      const confirmed: ChatMessage = { ...m, status: 'sent', localSeq: idx >= 0 ? list[idx].localSeq : 0 };
       if (idx >= 0) {
         const next = [...list];
-        next[idx] = confirmed; // pending → sent (or overwrite a duplicate)
+        next[idx] = confirmed;
         return next;
       }
       return [...list, confirmed];
     });
+    // If it's for the open conversation, I'm reading it → advance my read cursor.
+    if (m.conversationId === this.selectedId() && m.senderId !== this.session()?.userId) {
+      this.markReadOpen();
+    }
   }
 
   sendMessage(): void {
     const c = this.selected();
     const text = this.draft().trim();
     if (!c || !text) return;
-    this.stickToBottom = true; // I just sent — keep me at the bottom
+    this.stickToBottom = true;
+    this.stopTyping(c.id);
 
-    // Optimistic: render immediately as 'pending' before the server round-trip.
     const clientMsgId = crypto.randomUUID();
     const optimistic: ChatMessage = {
       id: clientMsgId,
@@ -135,14 +154,11 @@ export class Home {
       list.some((x) => x.clientMsgId === clientMsgId) ? list : [...list, optimistic],
     );
     this.draft.set('');
-
-    // If the socket is down, mark it failed so the user can retry.
     if (!this.socket.send(c.id, text, clientMsgId)) {
       this.setStatus(c.id, clientMsgId, 'failed');
     }
   }
 
-  /** Re-send a message that failed. */
   retry(m: ChatMessage): void {
     const c = this.selected();
     if (!c) return;
@@ -158,63 +174,161 @@ export class Home {
     );
   }
 
-  /** Apply an update to a conversation's message list and re-sort (sent by seq, pending last). */
   private mutate(convoId: string, fn: (list: ChatMessage[]) => ChatMessage[]): void {
     const map = new Map(this.messagesByConvo());
     const next = fn(map.get(convoId) ?? []).sort((a, b) => {
       const ap = a.status !== 'sent';
       const bp = b.status !== 'sent';
-      if (ap && bp) return a.localSeq - b.localSeq; // both un-acked → client order
-      if (ap) return 1; // pending/failed sort after confirmed
+      if (ap && bp) return a.localSeq - b.localSeq;
+      if (ap) return 1;
       if (bp) return -1;
-      return a.seq - b.seq; // confirmed → server seq (ADR-2)
+      return a.seq - b.seq;
     });
     map.set(convoId, next);
     this.messagesByConvo.set(map);
   }
 
-  isMine(m: Message): boolean {
-    return m.senderId === this.session()?.userId;
+  // --- read receipts / unread ---
+
+  /** Advance my read cursor to the newest message in the open conversation. */
+  private markReadOpen(): void {
+    const c = this.selected();
+    if (!c) return;
+    const newest = this.newestSeq(c.id);
+    if (newest == null) return;
+    const me = this.session()?.userId;
+    const myRead = c.participants.find((p) => p.userId === me)?.lastReadSeq ?? 0;
+    if (newest <= myRead) return;
+    // optimistic: clear my unread + advance my cursor locally
+    this.updateConversation(c.id, (conv) => ({
+      ...conv,
+      unreadCount: 0,
+      participants: conv.participants.map((p) => (p.userId === me ? { ...p, lastReadSeq: newest } : p)),
+    }));
+    this.convos.read(c.id, newest).subscribe({ error: () => {} });
   }
 
-  /** Sender's display name (for group bubbles) from the conversation's participant list. */
-  senderName(m: Message): string {
-    const p = this.selected()?.participants.find((x) => x.userId === m.senderId);
-    return p?.displayName ?? 'Someone';
+  /** My sent message is "read" when every OTHER participant's cursor has reached it. */
+  isRead(m: ChatMessage): boolean {
+    if (!this.isMine(m) || m.status !== 'sent') return false;
+    const c = this.selected();
+    if (!c) return false;
+    const me = this.session()?.userId;
+    const others = c.participants.filter((p) => p.userId !== me);
+    return others.length > 0 && others.every((p) => p.lastReadSeq >= m.seq);
   }
+
+  // --- presence ---
+
+  private updatePresence(p: PresenceEvent): void {
+    this.presenceByUser.update((m) => new Map(m).set(p.userId, p));
+  }
+
+  presenceText(c: Conversation): string {
+    if (c.type !== 'DIRECT') return `${c.participants.length} members`;
+    const o = this.other(c);
+    if (!o) return '';
+    const p = this.presenceByUser().get(o.userId);
+    if (!p) return `@${o.username}`;
+    if (p.online) return 'online';
+    return p.lastSeenAt ? `last seen ${this.timeAgo(p.lastSeenAt)}` : 'offline';
+  }
+
+  isPeerOnline(c: Conversation): boolean {
+    if (c.type !== 'DIRECT') return false;
+    const o = this.other(c);
+    return !!o && !!this.presenceByUser().get(o.userId)?.online;
+  }
+
+  // --- typing ---
+
+  private onTyping(t: TypingEvent): void {
+    const key = `${t.conversationId}:${t.userId}`;
+    clearTimeout(this.typingTimers.get(key));
+    this.typingByConvo.update((map) => {
+      const m = new Map(map);
+      const set = new Set(m.get(t.conversationId) ?? []);
+      t.typing ? set.add(t.userId) : set.delete(t.userId);
+      m.set(t.conversationId, set);
+      return m;
+    });
+    if (t.typing) {
+      // auto-clear if the 'stop' is ever missed (client crash, dropped frame)
+      this.typingTimers.set(key, setTimeout(() => this.onTyping({ ...t, typing: false }), 5000));
+    } else {
+      this.typingTimers.delete(key);
+    }
+  }
+
+  typingText(c: Conversation): string {
+    const me = this.session()?.userId;
+    const typers = [...(this.typingByConvo().get(c.id) ?? [])].filter((u) => u !== me);
+    if (!typers.length) return '';
+    const names = typers.map(
+      (u) => c.participants.find((p) => p.userId === u)?.displayName ?? 'Someone',
+    );
+    return names.length === 1 ? `${names[0]} is typing…` : `${names.length} people are typing…`;
+  }
+
+  /** Composer input handler — updates the draft and emits throttled typing signals. */
+  onDraftInput(value: string): void {
+    this.draft.set(value);
+    const c = this.selected();
+    if (!c) return;
+    const now = Date.now();
+    if (now - this.lastTypingSent > 2500) {
+      this.socket.sendTyping(c.id, 'start');
+      this.lastTypingSent = now;
+    }
+    clearTimeout(this.stopTypingTimer);
+    this.stopTypingTimer = setTimeout(() => this.stopTyping(c.id), 3000);
+  }
+
+  private stopTyping(conversationId: string): void {
+    clearTimeout(this.stopTypingTimer);
+    if (this.lastTypingSent) {
+      this.socket.sendTyping(conversationId, 'stop');
+      this.lastTypingSent = 0;
+    }
+  }
+
+  // --- conversations / selection ---
 
   refresh(): void {
     this.convos.list().subscribe({
-      next: (c) => {
-        this.conversations.set(c);
-        // keep the selected conversation's reference fresh after a reload
-        const sel = this.selected();
-        if (sel) this.selected.set(c.find((x) => x.id === sel.id) ?? null);
-      },
+      next: (c) => this.conversations.set(c),
       error: () => this.error.set('Could not load conversations.'),
     });
   }
 
   select(c: Conversation): void {
-    this.selected.set(c);
+    this.selectedId.set(c.id);
     this.stickToBottom = true;
-    // Load history the first time a conversation is opened (live-only before Day 6).
+    if (c.type === 'DIRECT') {
+      const o = this.other(c);
+      if (o) this.convos.presence(o.userId).subscribe((p) => this.updatePresence(p));
+    }
     if (!this.loadedConvos.has(c.id)) {
       this.loadedConvos.add(c.id);
       this.msgApi.history(c.id, { limit: 50 }).subscribe({
         next: (res) => {
           this.mergeMessages(c.id, res.messages);
           if (!res.hasMore) this.historyExhausted.add(c.id);
+          this.markReadOpen();
           this.scrollToBottomSoon();
         },
         error: () => this.error.set('Could not load messages.'),
       });
     } else {
+      this.markReadOpen();
       this.scrollToBottomSoon();
     }
   }
 
-  /** Fired on thread scroll: track bottom-stickiness, and page older history near the top. */
+  private updateConversation(convId: string, fn: (c: Conversation) => Conversation): void {
+    this.conversations.update((list) => list.map((c) => (c.id === convId ? fn(c) : c)));
+  }
+
   onThreadScroll(): void {
     const el = this.threadEl()?.nativeElement;
     if (!el) return;
@@ -222,21 +336,17 @@ export class Home {
     if (el.scrollTop < 60) this.loadOlder();
   }
 
-  /** Cursor-paginate older messages (scroll-back), preserving the scroll position. */
   loadOlder(): void {
     const c = this.selected();
     if (!c || this.loadingOlder() || this.historyExhausted.has(c.id)) return;
     const oldest = this.oldestSeq(c.id);
     if (oldest == null) return;
-
     this.loadingOlder.set(true);
-    const el = this.threadEl()?.nativeElement;
-    const prevHeight = el?.scrollHeight ?? 0;
+    const prevHeight = this.threadEl()?.nativeElement.scrollHeight ?? 0;
     this.msgApi.history(c.id, { before: oldest, limit: 50 }).subscribe({
       next: (res) => {
         this.mergeMessages(c.id, res.messages);
         if (!res.hasMore) this.historyExhausted.add(c.id);
-        // keep the viewport anchored on the same message after prepending older ones
         queueMicrotask(() => {
           const e = this.threadEl()?.nativeElement;
           if (e) e.scrollTop = e.scrollHeight - prevHeight;
@@ -247,7 +357,6 @@ export class Home {
     });
   }
 
-  /** After a (re)connect, pull anything newer than what we already have for the open convo. */
   private syncOpenConversation(): void {
     const c = this.selected();
     if (!c || !this.loadedConvos.has(c.id)) return;
@@ -258,7 +367,6 @@ export class Home {
     });
   }
 
-  /** Merge a page of server messages into a conversation, deduped on clientMsgId. */
   private mergeMessages(convoId: string, incoming: Message[]): void {
     this.mutate(convoId, (list) => {
       const known = new Set(list.map((x) => x.clientMsgId));
@@ -270,13 +378,13 @@ export class Home {
   }
 
   private oldestSeq(convoId: string): number | null {
-    const confirmed = (this.messagesByConvo().get(convoId) ?? []).filter((m) => m.status === 'sent');
-    return confirmed.length ? confirmed[0].seq : null; // list is seq-ascending
+    const c = (this.messagesByConvo().get(convoId) ?? []).filter((m) => m.status === 'sent');
+    return c.length ? c[0].seq : null;
   }
 
   private newestSeq(convoId: string): number | null {
-    const confirmed = (this.messagesByConvo().get(convoId) ?? []).filter((m) => m.status === 'sent');
-    return confirmed.length ? confirmed[confirmed.length - 1].seq : null;
+    const c = (this.messagesByConvo().get(convoId) ?? []).filter((m) => m.status === 'sent');
+    return c.length ? c[c.length - 1].seq : null;
   }
 
   private scrollToBottomSoon(): void {
@@ -329,8 +437,9 @@ export class Home {
         next: (created) => {
           this.creating.set(false);
           this.showCreate.set(false);
+          this.conversations.update((list) => [created, ...list.filter((x) => x.id !== created.id)]);
+          this.select(created);
           this.refresh();
-          this.selected.set(created); // open the new conversation
         },
         error: (err) => {
           this.creating.set(false);
@@ -341,7 +450,6 @@ export class Home {
 
   // --- display helpers ---
 
-  /** Direct chats have no title — show the other participant; groups show their title. */
   label(c: Conversation): string {
     if (c.type === 'GROUP') return c.title ?? 'Untitled group';
     return this.other(c)?.displayName ?? 'Direct chat';
@@ -353,19 +461,31 @@ export class Home {
     return o ? `@${o.username}` : '';
   }
 
-  /** Stable color key for a conversation's avatar. */
   avatarKey(c: Conversation): string {
     return c.type === 'GROUP' ? c.id : this.other(c)?.userId ?? c.id;
   }
 
-  /** Comma-separated participant names for the group thread header. */
-  joinNames(c: Conversation): string {
-    return c.participants.map((p) => p.displayName).join(', ');
+  isMine(m: Message): boolean {
+    return m.senderId === this.session()?.userId;
+  }
+
+  senderName(m: Message): string {
+    const p = this.selected()?.participants.find((x) => x.userId === m.senderId);
+    return p?.displayName ?? 'Someone';
   }
 
   private other(c: Conversation) {
     const me = this.session()?.userId;
     return c.participants.find((p) => p.userId !== me);
+  }
+
+  private timeAgo(iso: string): string {
+    const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
   }
 
   logout(): void {

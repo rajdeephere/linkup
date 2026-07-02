@@ -7,6 +7,22 @@ import { Message } from '../messages/message.models';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 
+export interface PresenceEvent {
+  userId: string;
+  online: boolean;
+  lastSeenAt: string | null;
+}
+export interface TypingEvent {
+  conversationId: string;
+  userId: string;
+  typing: boolean;
+}
+export interface ReadReceiptEvent {
+  conversationId: string;
+  userId: string;
+  lastReadSeq: number;
+}
+
 /**
  * Real-time transport — a STOMP-over-WebSocket client (ADR-9).
  *
@@ -21,10 +37,16 @@ export class SocketService {
 
   private readonly _connection = new BehaviorSubject<ConnectionState>('disconnected');
   private readonly _messages = new Subject<Message>();
+  private readonly _presence = new Subject<PresenceEvent>();
+  private readonly _typing = new Subject<TypingEvent>();
+  private readonly _receipts = new Subject<ReadReceiptEvent>();
   private readonly _authFailure = new Subject<void>();
 
   readonly connection$: Observable<ConnectionState> = this._connection.asObservable();
   readonly messages$: Observable<Message> = this._messages.asObservable();
+  readonly presence$: Observable<PresenceEvent> = this._presence.asObservable();
+  readonly typing$: Observable<TypingEvent> = this._typing.asObservable();
+  readonly receipts$: Observable<ReadReceiptEvent> = this._receipts.asObservable();
   /** Emits when the socket can't authenticate (missing/expired/invalid token). The app
    *  reacts by logging out + redirecting, instead of letting STOMP reconnect forever. */
   readonly authFailure$: Observable<void> = this._authFailure.asObservable();
@@ -48,9 +70,12 @@ export class SocketService {
       heartbeatOutgoing: 10000,
       onConnect: () => {
         this._connection.next('connected');
-        this.client!.subscribe('/user/queue/messages', (frame: IMessage) => {
-          this._messages.next(JSON.parse(frame.body) as Message);
-        });
+        const sub = (dest: string, out: (v: any) => void) =>
+          this.client!.subscribe(dest, (f: IMessage) => out(JSON.parse(f.body)));
+        sub('/user/queue/messages', (v) => this._messages.next(v as Message));
+        sub('/user/queue/presence', (v) => this._presence.next(v as PresenceEvent));
+        sub('/user/queue/typing', (v) => this._typing.next(v as TypingEvent));
+        sub('/user/queue/receipts', (v) => this._receipts.next(v as ReadReceiptEvent));
       },
       onWebSocketClose: () => {
         // Transient drop → stompjs auto-reconnects ('reconnecting'). After a fatal auth
@@ -85,6 +110,15 @@ export class SocketService {
       body: JSON.stringify({ clientMsgId, type: 'TEXT', body }),
     });
     return true;
+  }
+
+  /** Signal typing start/stop for a conversation (ephemeral; the server TTLs it). */
+  sendTyping(conversationId: string, state: 'start' | 'stop'): void {
+    if (!this.client?.connected) return;
+    this.client.publish({
+      destination: `/app/conversations/${conversationId}/typing`,
+      body: JSON.stringify({ state }),
+    });
   }
 
   disconnect(): void {

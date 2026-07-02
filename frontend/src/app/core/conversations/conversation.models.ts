@@ -8,6 +8,7 @@ export interface ParticipantSummary {
   username: string;
   displayName: string;
   role: ParticipantRole;
+  lastReadSeq: number;
 }
 
 export interface Conversation {
@@ -16,6 +17,7 @@ export interface Conversation {
   title: string | null;
   createdAt: string;
   lastMessageAt: string | null;
+  unreadCount: number;
   participants: ParticipantSummary[];
 }
 
