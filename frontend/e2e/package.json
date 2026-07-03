@@ -2,13 +2,16 @@
   "name": "linkup-frontend-e2e",
   "version": "0.0.0",
   "private": true,
-  "description": "Playwright demos that prove LinkUp's delivery guarantees visually (kept out of the app build).",
+  "description": "Playwright + protocol demos that prove LinkUp's delivery guarantees (kept out of the app build).",
   "scripts": {
     "setup": "playwright install chromium",
     "demo:optimistic": "node optimistic-send.demo.cjs",
-    "demo:receipts": "node receipts-typing-presence.demo.cjs"
+    "demo:receipts": "node receipts-typing-presence.demo.cjs",
+    "demo:crosspod": "node crosspod-fanout.demo.cjs"
   },
   "devDependencies": {
-    "playwright": "^1.48.0"
+    "@stomp/stompjs": "^7.3.0",
+    "playwright": "^1.48.0",
+    "ws": "^8.21.0"
   }
 }
