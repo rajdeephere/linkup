@@ -6,20 +6,23 @@ The full LinkUp stack via docker-compose: datastores **+ backend + frontend**.
 
 ---
 
-## Services
+## Services (multi-pod since Day 8)
 
 | Service | Image / build | Host port | Notes |
 |---|---|---|---|
-| **postgres** | `postgres:17-alpine` | **5433** → 5432 | metadata + messages; 5433 avoids a native Postgres on 5432 |
-| **redis** | `redis:7-alpine` | 6379 | used from Phase 1 (presence) & Phase 2 (Pub/Sub fan-out) |
-| **backend** | built from `../backend` | **8081** | Spring Boot; reaches DB in-network as `postgres:5432` |
+| **postgres** | `postgres:17-alpine` | **5433** → 5432 | metadata + messages |
+| **redis** | `redis:7-alpine` | 6379 | presence/typing (Phase 1) **+ Pub/Sub fan-out routing (Phase 2)** |
+| **backend1** | built from `../backend` | **8091** → 8081 | pod 1 (builds the shared `linkup-backend:local` image) |
+| **backend2** | reuses `linkup-backend:local` | **8092** → 8081 | pod 2 |
+| **gateway** | `nginx:alpine` | **8081** | WebSocket-aware LB over both pods (round-robin, no affinity) |
 | **frontend** | built from `../frontend` | **4200** → 80 | nginx serving the Angular bundle |
 
-> **Networking:** inside the compose network services use service names (`backend → postgres:5432`).
-> The **browser** uses published host ports — it calls the backend at `localhost:8081` and loads the
-> app from `localhost:4200`, which is why backend CORS allows `http://localhost:4200`.
+> **Cross-pod delivery:** a message from a socket on backend1 reaches a socket on backend2 via
+> **Redis Pub/Sub** (ADR-0001), so the gateway needs **no sticky sessions**. The browser hits the
+> **gateway** at `localhost:8081`; the pods are also exposed directly on `:8091`/`:8092` so a test can
+> target a specific pod and prove cross-pod (`cd ../frontend/e2e && npm run demo:crosspod`).
 >
-> Kafka / Cassandra / MinIO arrive in Phase 2/3 — not here yet (golden rule: correct-on-one-server first).
+> Kafka / Cassandra / MinIO arrive in Phase 2 (Day 9) / 3 — not here yet.
 
 ## Use
 

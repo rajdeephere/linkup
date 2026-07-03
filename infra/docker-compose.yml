@@ -1,10 +1,25 @@
-# LinkUp — full local stack: datastores + backend + frontend.
+# LinkUp — full local stack, now MULTI-POD (Day 8).
 #
-# `docker compose -f infra/docker-compose.yml up -d --build` brings up everything.
-# Inside the compose network, services reach each other by name (backend → postgres:5432).
-# The browser reaches the published host ports (frontend :4200, backend :8081).
+# Two backend pods (backend1, backend2) behind an nginx gateway (the LB). A message from a
+# socket on one pod reaches a socket on the other via Redis Pub/Sub fan-out (ADR-0001), so no
+# sticky sessions are needed. The browser hits the gateway on :8081; the pods are also exposed
+# directly on :8091 / :8092 so a test can target a specific pod and prove cross-pod delivery.
 #
 # Kafka / Cassandra / MinIO are deliberately NOT here yet — they arrive in Phase 2/3.
+
+x-backend: &backend
+  image: linkup-backend:local
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  environment: &backend-env
+    SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/linkup
+    SPRING_DATASOURCE_USERNAME: linkup
+    SPRING_DATASOURCE_PASSWORD: linkup
+    SPRING_DATA_REDIS_HOST: redis
+    LINKUP_JWT_SECRET: ZGV2LW9ubHktc2VjcmV0LWNoYW5nZS1tZS1pbi1wcm9kdWN0aW9uLTEyMzQ1Ng==
 
 services:
   postgres:
@@ -15,7 +30,6 @@ services:
       POSTGRES_USER: linkup
       POSTGRES_PASSWORD: linkup
     ports:
-      # Host 5433 → container 5432: avoids clashing with a native Postgres on 5432.
       - "5433:5432"
     volumes:
       - linkup-pgdata:/var/lib/postgresql/data
@@ -39,34 +53,49 @@ services:
       timeout: 3s
       retries: 10
 
-  backend:
+  # Pod 1 — builds the shared image; exposed directly on 8091 for the cross-pod demo.
+  backend1:
+    <<: *backend
     build:
       context: ../backend
-    container_name: linkup-backend
+    container_name: linkup-backend1
+    ports:
+      - "8091:8081"
+
+  # Pod 2 — reuses backend1's built image; exposed directly on 8092.
+  backend2:
+    <<: *backend
+    container_name: linkup-backend2
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    environment:
-      # In-network hosts are service names, not localhost.
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/linkup
-      SPRING_DATASOURCE_USERNAME: linkup
-      SPRING_DATASOURCE_PASSWORD: linkup
-      SPRING_DATA_REDIS_HOST: redis
-      # Dev-only JWT secret (same as the app default so tokens stay valid). Override in prod.
-      LINKUP_JWT_SECRET: ZGV2LW9ubHktc2VjcmV0LWNoYW5nZS1tZS1pbi1wcm9kdWN0aW9uLTEyMzQ1Ng==
+      backend1:
+        condition: service_started
     ports:
-      - "8081:8081"   # browser/REST/WebSocket hit localhost:8081
+      - "8092:8081"
+
+  # The load balancer the browser talks to (round-robin over both pods, WebSocket-aware).
+  gateway:
+    image: nginx:alpine
+    container_name: linkup-gateway
+    depends_on:
+      - backend1
+      - backend2
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "8081:8081"   # browser/REST/WebSocket → gateway → a backend pod
 
   frontend:
     build:
       context: ../frontend
     container_name: linkup-frontend
     depends_on:
-      - backend
+      - gateway
     ports:
-      - "4200:80"     # nginx serves the Angular bundle; browser origin = http://localhost:4200
+      - "4200:80"
 
 volumes:
   linkup-pgdata:
