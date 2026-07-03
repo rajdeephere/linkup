@@ -7,9 +7,9 @@ import com.linkup.conversation.dto.AddMembersRequest;
 import com.linkup.conversation.dto.ConversationResponse;
 import com.linkup.conversation.dto.CreateConversationRequest;
 import com.linkup.conversation.dto.ReadReceiptEvent;
+import com.linkup.realtime.RealtimeFanout;
 import com.linkup.user.User;
 import com.linkup.user.UserRepository;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,16 +34,16 @@ public class ConversationService {
     private final ConversationRepository conversationRepository;
     private final ParticipantRepository participantRepository;
     private final UserRepository userRepository;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final RealtimeFanout fanout;
 
     public ConversationService(ConversationRepository conversationRepository,
                                ParticipantRepository participantRepository,
                                UserRepository userRepository,
-                               SimpMessagingTemplate messagingTemplate) {
+                               RealtimeFanout fanout) {
         this.conversationRepository = conversationRepository;
         this.participantRepository = participantRepository;
         this.userRepository = userRepository;
-        this.messagingTemplate = messagingTemplate;
+        this.fanout = fanout;
     }
 
     @Transactional
@@ -164,9 +164,7 @@ public class ConversationService {
         }
         me.setLastReadSeq(seq);
         ReadReceiptEvent event = new ReadReceiptEvent(conversationId, userId, seq);
-        for (String peer : participantRepository.findOtherParticipantUsernames(conversationId, userId)) {
-            messagingTemplate.convertAndSendToUser(peer, "/queue/receipts", event);
-        }
+        fanout.send(participantRepository.findOtherParticipantUsernames(conversationId, userId), "/queue/receipts", event);
     }
 
     // --- helpers ---

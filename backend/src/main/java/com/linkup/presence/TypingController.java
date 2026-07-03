@@ -4,11 +4,11 @@ import com.linkup.auth.AppUserPrincipal;
 import com.linkup.conversation.ParticipantRepository;
 import com.linkup.presence.dto.TypingEvent;
 import com.linkup.presence.dto.TypingRequest;
+import com.linkup.realtime.RealtimeFanout;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 
@@ -28,14 +28,14 @@ public class TypingController {
 
     private static final Duration TTL = Duration.ofSeconds(6);
 
-    private final SimpMessagingTemplate messagingTemplate;
+    private final RealtimeFanout fanout;
     private final ParticipantRepository participants;
     private final StringRedisTemplate redis;
 
-    public TypingController(SimpMessagingTemplate messagingTemplate,
+    public TypingController(RealtimeFanout fanout,
                             ParticipantRepository participants,
                             StringRedisTemplate redis) {
-        this.messagingTemplate = messagingTemplate;
+        this.fanout = fanout;
         this.participants = participants;
         this.redis = redis;
     }
@@ -56,8 +56,6 @@ public class TypingController {
             redis.delete(key);
         }
         TypingEvent event = new TypingEvent(conversationId, userId, typing);
-        for (String peer : participants.findOtherParticipantUsernames(conversationId, userId)) {
-            messagingTemplate.convertAndSendToUser(peer, "/queue/typing", event);
-        }
+        fanout.send(participants.findOtherParticipantUsernames(conversationId, userId), "/queue/typing", event);
     }
 }

@@ -25,6 +25,10 @@ public interface ParticipantRepository extends JpaRepository<Participant, UUID> 
     @Query("select p.user.username from Participant p where p.conversation.id = :convId and p.user.id <> :userId")
     List<String> findOtherParticipantUsernames(@Param("convId") UUID convId, @Param("userId") UUID userId);
 
+    /** Usernames of ALL participants (message fan-out includes the sender's own echo). */
+    @Query("select p.user.username from Participant p where p.conversation.id = :convId")
+    List<String> findParticipantUsernames(@Param("convId") UUID convId);
+
     /** Distinct usernames of people who share ANY conversation with the user (presence fan-out). */
     @Query("""
             select distinct p2.user.username from Participant p1, Participant p2

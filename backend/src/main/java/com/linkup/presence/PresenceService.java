@@ -2,8 +2,8 @@ package com.linkup.presence;
 
 import com.linkup.conversation.ParticipantRepository;
 import com.linkup.presence.dto.PresenceResponse;
+import com.linkup.realtime.RealtimeFanout;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -29,14 +29,14 @@ public class PresenceService {
 
     private final StringRedisTemplate redis;
     private final ParticipantRepository participants;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final RealtimeFanout fanout;
 
     public PresenceService(StringRedisTemplate redis,
                            ParticipantRepository participants,
-                           SimpMessagingTemplate messagingTemplate) {
+                           RealtimeFanout fanout) {
         this.redis = redis;
         this.participants = participants;
-        this.messagingTemplate = messagingTemplate;
+        this.fanout = fanout;
     }
 
     /** A device connected. If it's the user's first live session, they just came online. */
@@ -71,8 +71,6 @@ public class PresenceService {
     }
 
     private void broadcast(UUID userId, PresenceResponse event) {
-        for (String peer : participants.findPeerUsernames(userId)) {
-            messagingTemplate.convertAndSendToUser(peer, "/queue/presence", event);
-        }
+        fanout.send(participants.findPeerUsernames(userId), "/queue/presence", event);
     }
 }

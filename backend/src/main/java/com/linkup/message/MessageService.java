@@ -8,10 +8,10 @@ import com.linkup.conversation.ParticipantRepository;
 import com.linkup.message.dto.MessageHistoryResponse;
 import com.linkup.message.dto.MessageResponse;
 import com.linkup.message.dto.SendMessageRequest;
+import com.linkup.realtime.RealtimeFanout;
 import com.linkup.user.UserRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,18 +39,18 @@ public class MessageService {
     private final ConversationRepository conversationRepository;
     private final ParticipantRepository participantRepository;
     private final UserRepository userRepository;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final RealtimeFanout fanout;
 
     public MessageService(MessageRepository messageRepository,
                           ConversationRepository conversationRepository,
                           ParticipantRepository participantRepository,
                           UserRepository userRepository,
-                          SimpMessagingTemplate messagingTemplate) {
+                          RealtimeFanout fanout) {
         this.messageRepository = messageRepository;
         this.conversationRepository = conversationRepository;
         this.participantRepository = participantRepository;
         this.userRepository = userRepository;
-        this.messagingTemplate = messagingTemplate;
+        this.fanout = fanout;
     }
 
     @Transactional
@@ -123,8 +123,7 @@ public class MessageService {
     }
 
     private void broadcast(UUID conversationId, MessageResponse response) {
-        participantRepository.findByConversationIdFetchUser(conversationId).forEach(p ->
-                messagingTemplate.convertAndSendToUser(
-                        p.getUser().getUsername(), "/queue/messages", response));
+        // Cross-pod fan-out (ADR-0001): publish to Redis; each pod delivers to its local sockets.
+        fanout.send(participantRepository.findParticipantUsernames(conversationId), "/queue/messages", response);
     }
 }
