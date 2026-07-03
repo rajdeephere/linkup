@@ -9,7 +9,7 @@ through a hard technical decision."*
 
 | ADR | Decision | Status | Phase |
 |-----|----------|--------|-------|
-| [0001](./0001-redis-pubsub-fanout.md) | Connection fan-out via Redis Pub/Sub | Proposed | 2 |
+| [0001](./0001-redis-pubsub-fanout.md) | Connection fan-out via Redis Pub/Sub | Accepted | 2 (Day 8) |
 | [0002](./0002-server-assigned-seq.md) | Server-assigned monotonic `seq` per conversation | Accepted | 0 (Day 4) |
 | [0003](./0003-polyglot-persistence.md) | Polyglot persistence: Postgres metadata + Cassandra messages | Accepted¹ | 0→2 |
 | [0004](./0004-at-least-once-plus-dedup.md) | At-least-once delivery + client dedup = exactly-once display | Accepted | 0–1 |
