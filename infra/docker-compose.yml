@@ -14,11 +14,14 @@ x-backend: &backend
       condition: service_healthy
     redis:
       condition: service_healthy
+    kafka:
+      condition: service_healthy
   environment: &backend-env
     SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/linkup
     SPRING_DATASOURCE_USERNAME: linkup
     SPRING_DATASOURCE_PASSWORD: linkup
     SPRING_DATA_REDIS_HOST: redis
+    SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     LINKUP_JWT_SECRET: ZGV2LW9ubHktc2VjcmV0LWNoYW5nZS1tZS1pbi1wcm9kdWN0aW9uLTEyMzQ1Ng==
 
 services:
@@ -53,6 +56,29 @@ services:
       timeout: 3s
       retries: 10
 
+  # Kafka (KRaft single-node) — the durable message log / async backbone.
+  kafka:
+    image: apache/kafka:3.9.0
+    container_name: linkup-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
   # Pod 1 — builds the shared image; exposed directly on 8091 for the cross-pod demo.
   backend1:
     <<: *backend
@@ -70,6 +96,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
       backend1:
         condition: service_started
