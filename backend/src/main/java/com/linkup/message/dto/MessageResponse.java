@@ -15,6 +15,7 @@ public record MessageResponse(
         long seq,
         MessageType type,
         String body,
+        MessageAttachment attachment,
         Instant createdAt
 ) {
     public static MessageResponse from(Message m) {
@@ -26,6 +27,7 @@ public record MessageResponse(
                 m.getSeq(),
                 m.getType(),
                 m.getBody(),
+                MessageAttachment.from(m),
                 m.getCreatedAt());
     }
 }

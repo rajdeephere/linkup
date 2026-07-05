@@ -69,6 +69,25 @@ public class Message {
     @Column(columnDefinition = "text")
     private String body;
 
+    // --- media attachment (Day 10, ADR-0005): a reference to an object in blob storage, never
+    //     the bytes. All null for a TEXT message. ---
+
+    @Column(name = "blob_key", columnDefinition = "text")
+    private String blobKey;
+
+    @Column(name = "mime_type", length = 120)
+    private String mimeType;
+
+    @Column(name = "size_bytes")
+    private Long sizeBytes;
+
+    private Integer width;
+
+    private Integer height;
+
+    @Column(name = "duration_ms")
+    private Integer durationMs;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 

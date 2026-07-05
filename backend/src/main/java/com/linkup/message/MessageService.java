@@ -1,10 +1,13 @@
 package com.linkup.message;
 
+import com.linkup.common.BadRequestException;
 import com.linkup.common.ForbiddenException;
 import com.linkup.common.NotFoundException;
 import com.linkup.conversation.Conversation;
 import com.linkup.conversation.ConversationRepository;
 import com.linkup.conversation.ParticipantRepository;
+import com.linkup.media.MediaService;
+import com.linkup.message.dto.AttachmentInput;
 import com.linkup.message.dto.MessageHistoryResponse;
 import com.linkup.events.MessageEventPublisher;
 import com.linkup.message.dto.MessageResponse;
@@ -42,19 +45,22 @@ public class MessageService {
     private final UserRepository userRepository;
     private final RealtimeFanout fanout;
     private final MessageEventPublisher events;
+    private final MediaService mediaService;
 
     public MessageService(MessageRepository messageRepository,
                           ConversationRepository conversationRepository,
                           ParticipantRepository participantRepository,
                           UserRepository userRepository,
                           RealtimeFanout fanout,
-                          MessageEventPublisher events) {
+                          MessageEventPublisher events,
+                          MediaService mediaService) {
         this.messageRepository = messageRepository;
         this.conversationRepository = conversationRepository;
         this.participantRepository = participantRepository;
         this.userRepository = userRepository;
         this.fanout = fanout;
         this.events = events;
+        this.mediaService = mediaService;
     }
 
     @Transactional
@@ -70,6 +76,9 @@ public class MessageService {
             return MessageResponse.from(existing.get());
         }
 
+        // 2b. Content check: TEXT/SYSTEM need a body; media needs a valid attachment (Day 10).
+        validateContent(req);
+
         // 3. Assign seq atomically under a row lock (the ordering serialization point).
         Conversation convo = conversationRepository.findByIdForUpdate(conversationId)
                 .orElseThrow(() -> new NotFoundException("Conversation not found"));
@@ -77,8 +86,8 @@ public class MessageService {
         convo.setLastSeq(seq);
         convo.setLastMessageAt(Instant.now());
 
-        // 4. Persist.
-        Message message = Message.builder()
+        // 4. Persist (media messages carry an attachment reference, never bytes).
+        Message.MessageBuilder builder = Message.builder()
                 .id(UUID.randomUUID())
                 .conversation(convo)
                 .sender(userRepository.getReferenceById(senderId))
@@ -86,8 +95,17 @@ public class MessageService {
                 .seq(seq)
                 .type(req.type())
                 .body(req.body())
-                .createdAt(Instant.now())
-                .build();
+                .createdAt(Instant.now());
+        AttachmentInput a = req.attachment();
+        if (a != null) {
+            builder.blobKey(a.blobKey())
+                    .mimeType(a.mimeType())
+                    .sizeBytes(a.sizeBytes())
+                    .width(a.width())
+                    .height(a.height())
+                    .durationMs(a.durationMs());
+        }
+        Message message = builder.build();
         messageRepository.save(message);
 
         // 5. Fan out to every participant's per-user queue (includes the sender → echo).
@@ -126,6 +144,30 @@ public class MessageService {
         }
         boolean hasMore = rows.size() == capped;
         return new MessageHistoryResponse(rows.stream().map(MessageResponse::from).toList(), hasMore);
+    }
+
+    /**
+     * Cross-field content rules (the wire DTO can't express them alone):
+     *  - TEXT/SYSTEM: a non-blank body is required, no attachment.
+     *  - IMAGE/VOICE/VIDEO/FILE: an attachment with a blobKey + allowed mimeType is required.
+     * We re-validate the mimeType server-side — the client is never trusted on its own say-so.
+     */
+    private void validateContent(SendMessageRequest req) {
+        boolean media = switch (req.type()) {
+            case IMAGE, VOICE, VIDEO, FILE -> true;
+            case TEXT, SYSTEM -> false;
+        };
+        if (media) {
+            AttachmentInput a = req.attachment();
+            if (a == null || a.blobKey() == null || a.blobKey().isBlank()) {
+                throw new BadRequestException("A " + req.type() + " message requires an attachment");
+            }
+            if (!mediaService.isAllowedContentType(a.mimeType())) {
+                throw new BadRequestException("Unsupported media type: " + a.mimeType());
+            }
+        } else if (req.body() == null || req.body().isBlank()) {
+            throw new BadRequestException("A " + req.type() + " message requires a body");
+        }
     }
 
     private void broadcast(UUID conversationId, MessageResponse response) {
