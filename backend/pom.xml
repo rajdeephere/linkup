@@ -25,6 +25,7 @@
     <properties>
         <java.version>21</java.version>
         <jjwt.version>0.12.6</jjwt.version>
+        <awssdk.version>2.29.52</awssdk.version>
     </properties>
 
     <dependencies>
@@ -50,6 +51,15 @@
         <dependency>
             <groupId>org.springframework.kafka</groupId>
             <artifactId>spring-kafka</artifactId>
+        </dependency>
+
+        <!-- AWS S3 (Day 10): presign PUT/GET so clients upload media DIRECTLY to object
+             storage (S3/MinIO) — bytes never touch the app tier (ADR-0005). The s3 module
+             bundles the S3Presigner; version pinned here since Boot's BOM doesn't manage it. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>${awssdk.version}</version>
         </dependency>
 
         <!-- Security: authentication/authorization; we use it for JWT + BCrypt. -->

@@ -60,6 +60,23 @@ linkup:
       access-token-ttl: ${LINKUP_JWT_TTL:PT1H}   # ISO-8601 duration: 1 hour
       issuer: linkup
 
+  media:
+    # Direct-to-blob media (Day 10, ADR-0005): the app only ever PRESIGNS URLs; clients
+    # PUT/GET bytes straight to object storage. The endpoint must be the one the BROWSER
+    # reaches (it's signed into the URL), so it points at the host-published MinIO, not the
+    # in-cluster name — presigning is offline, so the backend never has to reach it itself.
+    endpoint: ${LINKUP_MEDIA_ENDPOINT:http://localhost:9000}
+    region: ${LINKUP_MEDIA_REGION:us-east-1}
+    access-key: ${LINKUP_MEDIA_ACCESS_KEY:linkup}
+    secret-key: ${LINKUP_MEDIA_SECRET_KEY:linkup-secret}
+    bucket: ${LINKUP_MEDIA_BUCKET:linkup-media}
+    presign-ttl: ${LINKUP_MEDIA_PRESIGN_TTL:PT5M}   # short-lived upload/download URLs
+    max-upload-bytes: ${LINKUP_MEDIA_MAX_UPLOAD_BYTES:26214400}   # 25 MiB
+    # Allowlist of content-types we'll presign an upload for (images + voice/audio for Day 10).
+    allowed-content-types: >-
+      image/jpeg,image/png,image/webp,image/gif,
+      audio/webm,audio/ogg,audio/mpeg,audio/mp4,audio/wav
+
 server:
   # 8081 to avoid a native Apache (httpd) already bound to host 8080.
   port: 8081
