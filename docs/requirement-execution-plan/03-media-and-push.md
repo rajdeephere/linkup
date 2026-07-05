@@ -1,6 +1,6 @@
 # Phase 03 — Media + push notifications
 
-**Status:** ⬜ · **Roadmap:** Days 10–11
+**Status:** 🟡 in progress (Day 10 media ✅; Day 11 = push) · **Roadmap:** Days 10–11
 
 ## Goal
 Send a **photo and a voice note** without blocking the chat path, and get **woken by a push** when the
@@ -21,9 +21,9 @@ devices, deduped vs in-app, badge counts. **Out:** E2E, calls.
 [ADR-0008 push outbox](../adr/0008-push-outbox.md))
 
 ## Done when
-- [ ] Send a photo + a voice note; a large upload does **not** block the chat path.
-- [ ] Background the tab → receive a web-push notification; foreground → **no duplicate**.
-- [ ] Badge counts reflect unread per device.
+- [x] Send a photo + a voice note; a large upload does **not** block the chat path. **(Day 10 ✅)**
+- [ ] Background the tab → receive a web-push notification; foreground → **no duplicate**. — *Day 11*
+- [ ] Badge counts reflect unread per device. — *Day 11*
 
 ## Maps to
 - ADRs: [0005](../adr/0005-direct-to-blob-media.md), [0008](../adr/0008-push-outbox.md)

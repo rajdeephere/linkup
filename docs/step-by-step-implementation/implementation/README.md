@@ -14,6 +14,7 @@ Why it's done this way · Verify.** Code lives in the app repo (`linkup/backend`
 | [07](./07-day7-presence-typing-receipts.md) | 7 | Presence + typing (Redis) + read receipts + unread | ✅ full |
 | [08](./08-day8-redis-fanout-multipod.md) | 8 | ⭐ Redis Pub/Sub fan-out → multi-pod (A→pod-1, B→pod-2) | ✅ full |
 | [09](./09-day9-resiliency-kafka.md) | 9 | ⭐ Pod-kill zero-loss + Kafka log + backoff/jitter + graceful drain | ✅ full |
-| 10+ | 10+ | Media (direct-to-blob) → push → flagship (E2E/AI/calls) → deploy | ⬜ per phase |
+| [10](./10-day10-media-direct-to-blob.md) | 10 | ⭐ Media: direct-to-blob presigned upload (images + voice notes) | ✅ full |
+| 11+ | 11+ | Push (outbox → FCM) → flagship (E2E/AI/calls) → deploy | ⬜ per phase |
 
 Outlined runbooks get written in full the moment their feature ships.
