@@ -9,8 +9,9 @@ import {
   ConversationType,
   UserSummary,
 } from '../../core/conversations/conversation.models';
-import { ChatMessage, Message } from '../../core/messages/message.models';
+import { ChatMessage, Message, MessageType } from '../../core/messages/message.models';
 import { MessageService } from '../../core/messages/message.service';
+import { MediaService } from '../../core/media/media.service';
 import {
   PresenceEvent,
   SocketService,
@@ -35,6 +36,7 @@ export class Home {
   private auth = inject(AuthService);
   private convos = inject(ConversationService);
   private msgApi = inject(MessageService);
+  private media = inject(MediaService);
   private router = inject(Router);
   private socket = inject(SocketService);
   readonly theme = inject(ThemeService);
@@ -67,6 +69,13 @@ export class Home {
   });
   draft = signal('');
   loadingOlder = signal(false);
+
+  // media (Day 10): resolved presigned GET URLs (blobKey → url), recording state
+  private mediaUrls = signal<Map<string, string>>(new Map());
+  private mediaInFlight = new Set<string>();
+  recording = signal(false);
+  private recorder: MediaRecorder | null = null;
+  private recordChunks: Blob[] = [];
   private threadEl = viewChild<ElementRef<HTMLDivElement>>('threadScroll');
   private stickToBottom = true;
   private loadedConvos = new Set<string>();
@@ -109,6 +118,14 @@ export class Home {
       this.messages();
       if (this.stickToBottom) this.scrollToBottomSoon();
     });
+    // Resolve a presigned GET URL for any media message that doesn't have a local preview.
+    effect(() => {
+      for (const m of this.messages()) {
+        if ((m.type === 'IMAGE' || m.type === 'VOICE') && m.attachment?.blobKey && !m.localPreviewUrl) {
+          this.ensureMediaResolved(m.attachment.blobKey);
+        }
+      }
+    });
   }
 
   // --- inbound messages ---
@@ -116,7 +133,13 @@ export class Home {
   private onMessage(m: Message): void {
     this.mutate(m.conversationId, (list) => {
       const idx = list.findIndex((x) => x.clientMsgId === m.clientMsgId);
-      const confirmed: ChatMessage = { ...m, status: 'sent', localSeq: idx >= 0 ? list[idx].localSeq : 0 };
+      const confirmed: ChatMessage = {
+        ...m,
+        status: 'sent',
+        localSeq: idx >= 0 ? list[idx].localSeq : 0,
+        // keep my own optimistic preview so my media bubble doesn't flicker on reconcile
+        localPreviewUrl: idx >= 0 ? list[idx].localPreviewUrl : undefined,
+      };
       if (idx >= 0) {
         const next = [...list];
         next[idx] = confirmed;
@@ -163,9 +186,112 @@ export class Home {
     const c = this.selected();
     if (!c) return;
     this.setStatus(c.id, m.clientMsgId, 'pending');
-    if (!this.socket.send(c.id, m.body, m.clientMsgId)) {
-      this.setStatus(c.id, m.clientMsgId, 'failed');
+    // Media whose upload already succeeded just needs the tiny reference re-sent; text re-sends body.
+    const ok =
+      m.type !== 'TEXT' && m.attachment
+        ? this.socket.sendAttachment(c.id, m.type, m.attachment, m.clientMsgId)
+        : this.socket.send(c.id, m.body ?? '', m.clientMsgId);
+    if (!ok) this.setStatus(c.id, m.clientMsgId, 'failed');
+  }
+
+  // --- media (Day 10): direct-to-blob upload for images + voice notes ---
+
+  /** Hidden file input picked an image → upload it directly to blob storage, then send. */
+  onPickImage(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = ''; // let the same file be picked again later
+    if (file) this.sendAttachmentMessage(file, 'IMAGE');
+  }
+
+  /** Toggle voice-note recording (MediaRecorder → webm/opus → direct-to-blob on stop). */
+  async toggleRecording(): Promise<void> {
+    if (this.recording()) {
+      this.recorder?.stop();
+      return;
     }
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      this.error.set('Voice recording is not supported in this browser.');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.recordChunks = [];
+      this.recorder = new MediaRecorder(stream);
+      this.recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) this.recordChunks.push(e.data);
+      };
+      this.recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop()); // release the mic
+        this.recording.set(false);
+        const type = this.recorder?.mimeType || 'audio/webm';
+        const blob = new Blob(this.recordChunks, { type });
+        this.recorder = null;
+        if (blob.size > 0) {
+          const file = new File([blob], `voice-${Date.now()}.webm`, { type });
+          this.sendAttachmentMessage(file, 'VOICE');
+        }
+      };
+      this.recorder.start();
+      this.recording.set(true);
+    } catch {
+      this.error.set('Could not access the microphone.');
+    }
+  }
+
+  /** Optimistically render a media bubble, upload the bytes directly, then send the reference. */
+  private async sendAttachmentMessage(file: File, type: MessageType): Promise<void> {
+    const c = this.selected();
+    if (!c) return;
+    this.stickToBottom = true;
+
+    const clientMsgId = crypto.randomUUID();
+    const optimistic: ChatMessage = {
+      id: clientMsgId,
+      conversationId: c.id,
+      senderId: this.session()!.userId,
+      clientMsgId,
+      seq: 0,
+      type,
+      body: null,
+      attachment: null,
+      createdAt: new Date().toISOString(),
+      status: 'pending',
+      localSeq: ++this.localCounter,
+      localPreviewUrl: URL.createObjectURL(file), // instant preview while uploading
+    };
+    this.mutate(c.id, (list) => [...list, optimistic]);
+
+    try {
+      const attachment = await this.media.upload(file);
+      // stash the reference on the pending bubble so a failed send can be retried
+      this.mutate(c.id, (list) =>
+        list.map((x) => (x.clientMsgId === clientMsgId ? { ...x, attachment } : x)),
+      );
+      if (!this.socket.sendAttachment(c.id, type, attachment, clientMsgId)) {
+        this.setStatus(c.id, clientMsgId, 'failed');
+      }
+    } catch {
+      this.setStatus(c.id, clientMsgId, 'failed');
+      this.error.set('Upload failed — tap to retry.');
+    }
+  }
+
+  private ensureMediaResolved(blobKey: string): void {
+    if (this.mediaUrls().has(blobKey) || this.mediaInFlight.has(blobKey)) return;
+    this.mediaInFlight.add(blobKey);
+    this.media
+      .resolveUrl(blobKey)
+      .then((url) => this.mediaUrls.update((m) => new Map(m).set(blobKey, url)))
+      .catch(() => {})
+      .finally(() => this.mediaInFlight.delete(blobKey));
+  }
+
+  /** The src for a media bubble: local preview (my upload) → resolved presigned GET → null. */
+  mediaSrc(m: ChatMessage): string | null {
+    if (m.localPreviewUrl) return m.localPreviewUrl;
+    const key = m.attachment?.blobKey;
+    return key ? this.mediaUrls().get(key) ?? null : null;
   }
 
   private setStatus(convoId: string, clientMsgId: string, status: ChatMessage['status']): void {

@@ -3,7 +3,7 @@ import { Client, IMessage } from '@stomp/stompjs';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { TokenStorage } from '../auth/token-storage';
-import { Message } from '../messages/message.models';
+import { Message, MessageAttachment, MessageType } from '../messages/message.models';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 
@@ -122,6 +122,25 @@ export class SocketService {
     this.client.publish({
       destination: `/app/conversations/${conversationId}/send`,
       body: JSON.stringify({ clientMsgId, type: 'TEXT', body }),
+    });
+    return true;
+  }
+
+  /**
+   * Send a media message (Day 10). The bytes are already in blob storage; this frame carries
+   * only the `attachment` reference (blobKey + metadata) — the chat path stays tiny regardless
+   * of file size. Same clientMsgId contract as text so the echo reconciles the optimistic bubble.
+   */
+  sendAttachment(
+    conversationId: string,
+    type: MessageType,
+    attachment: MessageAttachment,
+    clientMsgId: string,
+  ): boolean {
+    if (!this.client?.connected) return false;
+    this.client.publish({
+      destination: `/app/conversations/${conversationId}/send`,
+      body: JSON.stringify({ clientMsgId, type, attachment }),
     });
     return true;
   }

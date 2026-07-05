@@ -215,6 +215,18 @@
       .sender { font-size: 0.72rem; font-weight: 700; color: var(--accent); }
       .body { white-space: pre-wrap; }
 
+      // media (Day 10) — image thumbnails + voice-note player inside a bubble
+      .media-link { display: block; line-height: 0; }
+      .media-img {
+        display: block;
+        max-width: min(260px, 60vw);
+        max-height: 300px;
+        border-radius: 10px;
+        object-fit: cover;
+      }
+      .media-audio { display: block; width: 240px; max-width: 60vw; height: 40px; }
+      .media-loading { font-size: 0.8rem; color: var(--text-muted); }
+
       .status {
         align-self: flex-end;
         font-size: 0.62rem;
@@ -248,12 +260,31 @@
 
   .composer {
     display: flex;
+    align-items: center;
     gap: 0.6rem;
     padding: 0.9rem 1.2rem;
     border-top: 1px solid var(--border);
     background: var(--bg-elevated);
 
-    input {
+    .attach {
+      flex: none;
+      width: 42px; height: 42px;
+      border: 1px solid var(--border-strong);
+      border-radius: 11px;
+      background: var(--bg-inset);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 1.05rem;
+      line-height: 1;
+      &:hover { background: var(--bg-hover); }
+      &.recording {
+        border-color: var(--danger);
+        background: color-mix(in srgb, var(--danger) 18%, transparent);
+        animation: rec-pulse 1.2s ease-in-out infinite;
+      }
+    }
+
+    input[type='text'] {
       flex: 1;
       padding: 0.7rem 0.9rem;
       border: 1px solid var(--border-strong);
@@ -347,4 +378,8 @@
   }
 
   .error { color: var(--danger); font-size: 0.8rem; margin: 0; }
+}
+
+@keyframes rec-pulse {
+  50% { opacity: 0.5; }
 }

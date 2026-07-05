@@ -92,7 +92,27 @@
                   @if (!isMine(m) && c.type === 'GROUP') {
                     <span class="sender">{{ senderName(m) }}</span>
                   }
-                  <span class="body">{{ m.body }}</span>
+                  @switch (m.type) {
+                    @case ('IMAGE') {
+                      @if (mediaSrc(m); as src) {
+                        <a class="media-link" [href]="src" target="_blank" rel="noopener">
+                          <img class="media-img" [src]="src" alt="Shared image" loading="lazy" />
+                        </a>
+                      } @else {
+                        <span class="media-loading">🖼️ loading…</span>
+                      }
+                    }
+                    @case ('VOICE') {
+                      @if (mediaSrc(m); as src) {
+                        <audio class="media-audio" controls preload="metadata" [src]="src"></audio>
+                      } @else {
+                        <span class="media-loading">🎤 loading…</span>
+                      }
+                    }
+                    @default {
+                      <span class="body">{{ m.body }}</span>
+                    }
+                  }
                   @if (isMine(m)) {
                     <span class="status">
                       @switch (m.status) {
@@ -118,12 +138,22 @@
       </div>
 
       <footer class="composer">
+        <input #imgInput type="file" accept="image/*" hidden (change)="onPickImage($event)" />
+        <button class="attach" title="Send an image" (click)="imgInput.click()">📎</button>
+        <button
+          class="attach mic"
+          [class.recording]="recording()"
+          [title]="recording() ? 'Stop & send' : 'Record a voice note'"
+          (click)="toggleRecording()">
+          {{ recording() ? '⏹️' : '🎤' }}
+        </button>
         <input
           type="text"
           [ngModel]="draft()"
           (ngModelChange)="onDraftInput($event)"
           (keyup.enter)="sendMessage()"
-          [placeholder]="'Message ' + label(c) + '…'" />
+          [placeholder]="recording() ? 'Recording voice note…' : 'Message ' + label(c) + '…'"
+          [disabled]="recording()" />
         <button class="send" [disabled]="!draft().trim()" (click)="sendMessage()">Send</button>
       </footer>
     } @else {
