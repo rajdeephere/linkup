@@ -23,6 +23,9 @@ export interface ReadReceiptEvent {
   lastReadSeq: number;
 }
 
+const BASE_RECONNECT_MS = 2000;
+const MAX_RECONNECT_MS = 30000;
+
 /**
  * Real-time transport — a STOMP-over-WebSocket client (ADR-9).
  *
@@ -34,6 +37,7 @@ export interface ReadReceiptEvent {
 export class SocketService {
   private storage = inject(TokenStorage);
   private client: Client | null = null;
+  private reconnectAttempts = 0;
 
   private readonly _connection = new BehaviorSubject<ConnectionState>('disconnected');
   private readonly _messages = new Subject<Message>();
@@ -65,11 +69,13 @@ export class SocketService {
     this.client = new Client({
       brokerURL: environment.wsUrl,
       connectHeaders: { Authorization: `Bearer ${token}` },
-      reconnectDelay: 2000,
+      reconnectDelay: BASE_RECONNECT_MS,
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,
       onConnect: () => {
         this._connection.next('connected');
+        this.reconnectAttempts = 0;                 // reset backoff on a good connection
+        this.client!.reconnectDelay = BASE_RECONNECT_MS;
         const sub = (dest: string, out: (v: any) => void) =>
           this.client!.subscribe(dest, (f: IMessage) => out(JSON.parse(f.body)));
         sub('/user/queue/messages', (v) => this._messages.next(v as Message));
@@ -78,9 +84,17 @@ export class SocketService {
         sub('/user/queue/receipts', (v) => this._receipts.next(v as ReadReceiptEvent));
       },
       onWebSocketClose: () => {
-        // Transient drop → stompjs auto-reconnects ('reconnecting'). After a fatal auth
-        // failure we've already deactivated, so this resolves to 'disconnected'.
-        this._connection.next(this.client?.active ? 'reconnecting' : 'disconnected');
+        if (this.client?.active) {
+          // Exponential backoff + JITTER for the next reconnect — so a whole fleet that
+          // dropped together (pod kill / deploy) doesn't reconnect in lockstep and stampede
+          // the survivors (scenario #8). stompjs reads reconnectDelay for its next attempt.
+          this.reconnectAttempts++;
+          const backoff = Math.min(BASE_RECONNECT_MS * 2 ** (this.reconnectAttempts - 1), MAX_RECONNECT_MS);
+          this.client.reconnectDelay = backoff + Math.floor(Math.random() * 1000);
+          this._connection.next('reconnecting');
+        } else {
+          this._connection.next('disconnected');
+        }
       },
       onStompError: (frame) => {
         // The server rejected the CONNECT (e.g. expired/invalid token → our interceptor).
