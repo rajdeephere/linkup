@@ -6,6 +6,7 @@ import com.linkup.conversation.Conversation;
 import com.linkup.conversation.ConversationRepository;
 import com.linkup.conversation.ParticipantRepository;
 import com.linkup.message.dto.MessageHistoryResponse;
+import com.linkup.events.MessageEventPublisher;
 import com.linkup.message.dto.MessageResponse;
 import com.linkup.message.dto.SendMessageRequest;
 import com.linkup.realtime.RealtimeFanout;
@@ -40,17 +41,20 @@ public class MessageService {
     private final ParticipantRepository participantRepository;
     private final UserRepository userRepository;
     private final RealtimeFanout fanout;
+    private final MessageEventPublisher events;
 
     public MessageService(MessageRepository messageRepository,
                           ConversationRepository conversationRepository,
                           ParticipantRepository participantRepository,
                           UserRepository userRepository,
-                          RealtimeFanout fanout) {
+                          RealtimeFanout fanout,
+                          MessageEventPublisher events) {
         this.messageRepository = messageRepository;
         this.conversationRepository = conversationRepository;
         this.participantRepository = participantRepository;
         this.userRepository = userRepository;
         this.fanout = fanout;
+        this.events = events;
     }
 
     @Transactional
@@ -89,6 +93,8 @@ public class MessageService {
         // 5. Fan out to every participant's per-user queue (includes the sender → echo).
         MessageResponse response = MessageResponse.from(message);
         broadcast(conversationId, response);
+        // 6. Also append to the durable Kafka log (async backbone: push/search/AI consumers).
+        events.publish(response);
         return response;
     }
 

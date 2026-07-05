@@ -46,6 +46,12 @@
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
 
+        <!-- Kafka: durable async backbone / message log (Day 9). -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+
         <!-- Security: authentication/authorization; we use it for JWT + BCrypt. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

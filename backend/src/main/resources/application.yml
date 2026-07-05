@@ -15,6 +15,26 @@ spring:
       host: ${SPRING_DATA_REDIS_HOST:localhost}
       port: ${SPRING_DATA_REDIS_PORT:6379}
 
+  kafka:
+    # Durable async backbone (Day 9): every message is also written to a Kafka topic so
+    # async consumers (push, search, AI later) process it independently of live delivery.
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: linkup-events
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener:
+      # Don't crash the app if Kafka is briefly unavailable at startup — keep retrying.
+      missing-topics-fatal: false
+
+  # Graceful drain (Day 9): on SIGTERM stop accepting new work, let in-flight finish, then exit.
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+
   jpa:
     hibernate:
       # 'validate' — Hibernate checks the entity mappings against the real schema
@@ -43,6 +63,8 @@ linkup:
 server:
   # 8081 to avoid a native Apache (httpd) already bound to host 8080.
   port: 8081
+  # Finish in-flight requests on shutdown instead of dropping them (works with SIGTERM).
+  shutdown: graceful
 
 logging:
   level:
