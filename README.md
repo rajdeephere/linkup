@@ -38,9 +38,9 @@ This is a **distributed-systems** project wearing a chat app's clothes.
 
 | | |
 |---|---|
-| **Phase** | **2 — scale the fan-out** (Day 8 of 15 ✅) · Phases 0–1 complete |
-| **Shipped** | auth · conversations · WebSocket/STOMP · messaging (`seq`, exactly-once) · optimistic send · history + sync · presence/typing · read receipts · **⭐ multi-pod Redis Pub/Sub fan-out (A on pod-1 → B on pod-2), nginx LB, no sticky sessions** · dockerized · light/dark |
-| **Next** | Day 9 — Kafka durable log + pod-kill resiliency (zero message loss) ⭐ |
+| **Phase** | **2 — scale the fan-out ✅** (Day 9 of 15) · Phases 0–2 complete |
+| **Shipped** | auth · conversations · messaging (`seq`, exactly-once) · optimistic send · history + sync · presence/typing/receipts · multi-pod Redis fan-out (nginx LB) · **⭐ pod-kill zero-loss · Kafka durable log · backoff+jitter reconnect · graceful drain** · dockerized · light/dark |
+| **Next** | Day 10 — media pipeline: direct-to-blob presigned upload (images + voice notes) |
 
 Full milestone table → [`docs/requirement-execution-plan/`](./docs/requirement-execution-plan/).
 

@@ -1,6 +1,6 @@
 # Phase 02 — Scale the fan-out ⭐ (the headline)
 
-**Status:** 🟡 in progress (Day 8 cross-pod ✅; Day 9 = Kafka + pod-kill resiliency) · **Roadmap:** Days 8–9
+**Status:** ✅ core done (Day 8 cross-pod + Day 9 pod-kill zero-loss, Kafka, backoff/jitter, graceful drain) · **Roadmap:** Days 8–9
 
 ## Goal
 Go **multi-pod**. Prove a message from a socket on **pod-1** reaches a socket on **pod-7** in real
@@ -25,9 +25,10 @@ calls.
 
 ## Done when
 - [x] User A on pod-1, user B on pod-2 → A's message reaches B in real time (cross-pod). **(Day 8 ✅)**
-- [ ] Kill a pod holding live sockets → clients reconnect to another pod, resync via cursor, **zero loss**.
-- [ ] Load-test fan-out latency p99 and a reconnect storm without melting the cluster.
-- [ ] Messages served from Cassandra (partition by convo, cluster by `seq DESC`).
+- [x] Kill a pod holding live sockets → clients reconnect to another pod, resync via cursor, **zero loss**. **(Day 9 ✅)**
+- [x] Kafka durable log + backoff-with-jitter reconnect + graceful drain. **(Day 9 ✅)**
+- [ ] Load-test fan-out latency p99 and a reconnect storm without melting the cluster. — *Day 15 (k6/Gatling)*
+- [ ] Messages served from Cassandra (partition by convo, cluster by `seq DESC`). — *optional Day 12 polish; all-Postgres is fine*
 
 ## Maps to
 - ADRs: [0001](../adr/0001-redis-pubsub-fanout.md), [0003](../adr/0003-polyglot-persistence.md)
