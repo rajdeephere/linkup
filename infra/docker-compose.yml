@@ -1,11 +1,12 @@
-# LinkUp — full local stack, now MULTI-POD (Day 8).
+# LinkUp — full local stack: MULTI-POD (Day 8) + Kafka (Day 9) + MinIO media (Day 10).
 #
 # Two backend pods (backend1, backend2) behind an nginx gateway (the LB). A message from a
 # socket on one pod reaches a socket on the other via Redis Pub/Sub fan-out (ADR-0001), so no
 # sticky sessions are needed. The browser hits the gateway on :8081; the pods are also exposed
 # directly on :8091 / :8092 so a test can target a specific pod and prove cross-pod delivery.
 #
-# Kafka / Cassandra / MinIO are deliberately NOT here yet — they arrive in Phase 2/3.
+# Kafka = durable async backbone (Day 9). MinIO = S3-compatible media storage; clients upload
+# straight to it via presigned URLs (Day 10, ADR-0005). Cassandra is still deliberately absent.
 
 x-backend: &backend
   image: linkup-backend:local
@@ -16,12 +17,21 @@ x-backend: &backend
       condition: service_healthy
     kafka:
       condition: service_healthy
+    minio:
+      condition: service_healthy
   environment: &backend-env
     SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/linkup
     SPRING_DATASOURCE_USERNAME: linkup
     SPRING_DATASOURCE_PASSWORD: linkup
     SPRING_DATA_REDIS_HOST: redis
     SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    # Media presign (Day 10): endpoint is the BROWSER-reachable MinIO (it's signed into the URL),
+    # so it's localhost:9000, not the in-cluster name — presigning is offline, so the app never
+    # connects to it. Keys match the MinIO root credentials below.
+    LINKUP_MEDIA_ENDPOINT: http://localhost:9000
+    LINKUP_MEDIA_ACCESS_KEY: linkup
+    LINKUP_MEDIA_SECRET_KEY: linkup-secret
+    LINKUP_MEDIA_BUCKET: linkup-media
     LINKUP_JWT_SECRET: ZGV2LW9ubHktc2VjcmV0LWNoYW5nZS1tZS1pbi1wcm9kdWN0aW9uLTEyMzQ1Ng==
 
 services:
@@ -79,6 +89,41 @@ services:
       timeout: 5s
       retries: 15
 
+  # MinIO — S3-compatible object storage for media (Day 10, ADR-0005). Clients upload/download
+  # bytes DIRECTLY here via presigned URLs; the app tier only ever signs. API on :9000 (also the
+  # host the presigned URLs point at), web console on :9001.
+  minio:
+    image: minio/minio:RELEASE.2024-10-13T13-34-11Z
+    container_name: linkup-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: linkup
+      MINIO_ROOT_PASSWORD: linkup-secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - linkup-miniodata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  # One-shot: create the private media bucket once MinIO is up, then exit.
+  minio-init:
+    image: minio/mc:RELEASE.2024-10-08T09-37-26Z
+    container_name: linkup-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >-
+      /bin/sh -c "
+      mc alias set local http://minio:9000 linkup linkup-secret &&
+      mc mb --ignore-existing local/linkup-media &&
+      echo 'bucket linkup-media ready (private)'
+      "
+
   # Pod 1 — builds the shared image; exposed directly on 8091 for the cross-pod demo.
   backend1:
     <<: *backend
@@ -98,6 +143,8 @@ services:
       redis:
         condition: service_healthy
       kafka:
+        condition: service_healthy
+      minio:
         condition: service_healthy
       backend1:
         condition: service_started
@@ -128,3 +175,4 @@ services:
 volumes:
   linkup-pgdata:
   linkup-redisdata:
+  linkup-miniodata:
