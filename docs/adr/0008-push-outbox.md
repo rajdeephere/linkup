@@ -1,6 +1,16 @@
 # ADR-0008 — Push notifications via outbox + Kafka, deduped vs in-app
 
-**Status:** Proposed (Phase 3) · **Date:** 2026-06-19
+**Status:** ✅ Accepted (as-built, Day 11) · **Date:** 2026-06-19
+
+> **As-built (Day 11):** A `linkup-push` Kafka consumer group (separate from Day 9's
+> `linkup-events`) reads `message.created`, checks **Redis presence** per recipient, and for
+> **offline** recipients writes a `push_outbox` row per device and dispatches via a `PushSender`.
+> Dedup vs in-app = skip online recipients. Idempotency = unique `(message_id, device_id)`. Unread
+> count rides the payload for badging. `LoggingPushSender` is the dev default; `FcmPushSender`
+> (HTTP v1) is a `@ConditionalOnProperty` drop-in. `GET /v1/notifications` exposes the outbox.
+> The presence-vs-push race is accepted (a device going offline right after the check may miss the
+> live message but recovers via the Day-6 sync cursor). Proven by `e2e demo:push`. Next hardening:
+> a standalone retry-dispatcher for the PENDING backlog.
 
 ## Context
 "Device is offline/backgrounded → wake it" is a different reliability domain than in-app socket
