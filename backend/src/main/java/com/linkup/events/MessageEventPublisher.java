@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class MessageEventPublisher {
 
-    static final String TOPIC = "message.created";
+    public static final String TOPIC = "message.created";
     private static final Logger log = LoggerFactory.getLogger(MessageEventPublisher.class);
 
     private final KafkaTemplate<String, String> kafka;

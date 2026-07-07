@@ -77,6 +77,16 @@ linkup:
       image/jpeg,image/png,image/webp,image/gif,
       audio/webm,audio/ogg,audio/mpeg,audio/mp4,audio/wav
 
+  push:
+    # Push notifications (Day 11, ADR-0008). The `linkup-push` Kafka consumer wakes OFFLINE devices,
+    # deduped vs in-app delivery. fcm.enabled=false → LoggingPushSender (dev, no external creds);
+    # flip it on + supply project-id/access-token to use the real FcmPushSender (HTTP v1) drop-in.
+    body-preview-max: ${LINKUP_PUSH_BODY_PREVIEW_MAX:140}
+    fcm:
+      enabled: ${LINKUP_PUSH_FCM_ENABLED:false}
+      project-id: ${LINKUP_PUSH_FCM_PROJECT_ID:}
+      access-token: ${LINKUP_PUSH_FCM_ACCESS_TOKEN:}
+
 server:
   # 8081 to avoid a native Apache (httpd) already bound to host 8080.
   port: 8081
