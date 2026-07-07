@@ -41,7 +41,10 @@ public class MediaService {
     /** Validate the declared type/size, then mint a presigned PUT and the key to reference. */
     public PresignUploadResponse presignUpload(UUID userId, PresignUploadRequest req) {
         String contentType = req.contentType().trim().toLowerCase();
-        if (!allowed.contains(contentType)) {
+        // Match on the base type so codec-parameterized types pass (e.g. a Chrome voice note is
+        // "audio/webm;codecs=opus" but the allowlist lists "audio/webm"). We still sign/store the
+        // full type below so playback gets the exact Content-Type back.
+        if (!allowed.contains(baseType(contentType))) {
             throw new BadRequestException("Unsupported media type: " + req.contentType());
         }
         if (req.sizeBytes() > props.maxUploadBytes()) {
@@ -84,9 +87,19 @@ public class MediaService {
         return new DownloadUrlResponse(url, props.presignTtl().toSeconds());
     }
 
-    /** Whether a message-attachment's declared MIME type is one we accept. */
+    /** Whether a message-attachment's declared MIME type is one we accept (base type, params ignored). */
     public boolean isAllowedContentType(String contentType) {
-        return contentType != null && allowed.contains(contentType.trim().toLowerCase());
+        return contentType != null && allowed.contains(baseType(contentType));
+    }
+
+    /** The MIME type without parameters, lowercased — "audio/webm;codecs=opus" → "audio/webm". */
+    private static String baseType(String contentType) {
+        if (contentType == null) {
+            return "";
+        }
+        String c = contentType.trim().toLowerCase();
+        int semi = c.indexOf(';');
+        return semi >= 0 ? c.substring(0, semi).trim() : c;
     }
 
     /** Keep a filesystem/URL-safe suffix; the UUID segment guarantees uniqueness regardless. */
