@@ -9,7 +9,8 @@
     "demo:receipts": "node receipts-typing-presence.demo.cjs",
     "demo:crosspod": "node crosspod-fanout.demo.cjs",
     "demo:podkill": "node podkill-zeroloss.demo.cjs",
-    "demo:media": "node media-upload.demo.cjs"
+    "demo:media": "node media-upload.demo.cjs",
+    "demo:push": "node push-offline.demo.cjs"
   },
   "devDependencies": {
     "@stomp/stompjs": "^7.3.0",
