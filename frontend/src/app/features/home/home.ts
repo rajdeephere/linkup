@@ -12,6 +12,7 @@ import {
 import { ChatMessage, Message, MessageType } from '../../core/messages/message.models';
 import { MessageService } from '../../core/messages/message.service';
 import { MediaService } from '../../core/media/media.service';
+import { PushService } from '../../core/push/push.service';
 import {
   PresenceEvent,
   SocketService,
@@ -37,6 +38,7 @@ export class Home {
   private convos = inject(ConversationService);
   private msgApi = inject(MessageService);
   private media = inject(MediaService);
+  private push = inject(PushService);
   private router = inject(Router);
   private socket = inject(SocketService);
   readonly theme = inject(ThemeService);
@@ -95,6 +97,9 @@ export class Home {
 
   constructor() {
     this.socket.connect();
+    // Register this device for web push so it can be woken while offline (Day 11).
+    const active = this.session();
+    if (active) void this.push.init(active.deviceId);
     this.socket.messages$.subscribe((m) => this.onMessage(m));
     this.socket.presence$.subscribe((p) => this.updatePresence(p));
     this.socket.typing$.subscribe((t) => this.onTyping(t));
