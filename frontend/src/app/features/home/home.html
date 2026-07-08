@@ -72,7 +72,18 @@
             <span class="sub">{{ presenceText(c) }}</span>
           }
         </div>
+        <button class="ai-btn" [disabled]="summarizing()" (click)="summarizeThread()" title="Summarize with AI">
+          {{ summarizing() ? '✨ …' : '✨ Summarize' }}
+        </button>
       </header>
+
+      @if (summary(); as s) {
+        <div class="ai-summary">
+          <span class="ai-icon">✨</span>
+          <p>{{ s }}</p>
+          <button class="dismiss" (click)="dismissSummary()" title="Dismiss">✕</button>
+        </div>
+      }
 
       <div class="thread" #threadScroll (scroll)="onThreadScroll()">
         @if (loadingOlder()) {
@@ -137,8 +148,23 @@
         }
       </div>
 
+      @if (suggestions().length) {
+        <div class="ai-suggestions">
+          @for (s of suggestions(); track s) {
+            <button class="chip" (click)="useSuggestion(s)">{{ s }}</button>
+          }
+        </div>
+      }
+
       <footer class="composer">
         <input #imgInput type="file" accept="image/*" hidden (change)="onPickImage($event)" />
+        <button
+          class="attach ai"
+          [disabled]="suggesting()"
+          title="Suggest replies (AI)"
+          (click)="loadSuggestions()">
+          {{ suggesting() ? '…' : '💡' }}
+        </button>
         <button class="attach" title="Send an image" (click)="imgInput.click()">📎</button>
         <button
           class="attach mic"
