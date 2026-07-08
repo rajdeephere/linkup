@@ -1,6 +1,6 @@
 # Phase 04 — One flagship subsystem ⭐ (pick ONE, do it well)
 
-**Status:** ⬜ · **Roadmap:** Days 12–13
+**Status:** 🟡 in progress — **AI assist** chosen (Day 12: summarize + smart replies ✅) · **Roadmap:** Days 12–13
 
 ## Goal
 Add **one** deep, standout subsystem — done *well*, not three half-built. Each is its own demo and
@@ -19,8 +19,15 @@ war-story. Also a good slot for the optional message-scale store split / edit-de
 them as "future"); don't start a second flagship until the first is solid.
 
 ## Done when
-- [ ] The chosen flagship works end-to-end and is demoable.
-- [ ] Its failure modes are understood (e.g. E2E ↔ server-feature conflicts; SFU/TURN down; AI latency).
+- [x] The chosen flagship works end-to-end and is demoable. **(Day 12 ✅ — AI summarize + smart replies, `demo:ai`)**
+- [x] Its failure modes are understood. **(AI latency/outage: on-demand only, off the send path; failure degrades to a string, never a 500)**
+
+## As-built (Day 12)
+**AI assist**, provider-agnostic via the OpenAI-compatible chat API (Groq default; Ollama/OpenAI =
+base-url + model swap). `AiAssistant` interface with a deterministic `StubAiAssistant` default
+(no key, demo-green) and a real `GroqAiAssistant` drop-in. On-demand only: `POST …/summarize` +
+`POST …/suggest-replies`, membership-checked, media reduced to a marker (no bytes/ids to the model).
+Async moderation (a 3rd Kafka consumer group) is the noted next AI story.
 
 ## Maps to
 - ADRs depend on choice (0006 / 0007); AI + search have no new ADR (server-side consumers).

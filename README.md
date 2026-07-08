@@ -38,9 +38,9 @@ This is a **distributed-systems** project wearing a chat app's clothes.
 
 | | |
 |---|---|
-| **Phase** | **3 — media + push ✅** (Day 11 of 15) · Phases 0–3 complete |
-| **Shipped** | auth · conversations · messaging (`seq`, exactly-once) · optimistic send · history + sync · presence/typing/receipts · multi-pod Redis fan-out (nginx LB) · pod-kill zero-loss · Kafka durable log · backoff+jitter reconnect · graceful drain · direct-to-blob media (MinIO; images + voice notes) · **⭐ push: outbox + `linkup-push` Kafka consumer, deduped vs in-app, FCM drop-in, badge counts** · dockerized · light/dark |
-| **Next** | Day 12 — flagship subsystem (pick one): AI assist (Claude API) / E2E encryption / calls |
+| **Phase** | **4 — flagship: AI assist** (Day 12 of 15) · Phases 0–3 complete |
+| **Shipped** | auth · conversations · messaging (`seq`, exactly-once) · optimistic send · history + sync · presence/typing/receipts · multi-pod Redis fan-out (nginx LB) · pod-kill zero-loss · Kafka durable log · backoff+jitter reconnect · graceful drain · direct-to-blob media (MinIO) · push: outbox + Kafka consumer, deduped, FCM drop-in · **⭐ AI assist: thread summarize + smart replies (provider-agnostic OpenAI-compatible; Groq/Ollama drop-in, stub fallback)** · dockerized · light/dark |
+| **Next** | Day 13 — flagship polish, then Day 14–15 deploy & productize |
 
 Full milestone table → [`docs/requirement-execution-plan/`](./docs/requirement-execution-plan/).
 
