@@ -13,6 +13,7 @@ import { ChatMessage, Message, MessageType } from '../../core/messages/message.m
 import { MessageService } from '../../core/messages/message.service';
 import { MediaService } from '../../core/media/media.service';
 import { PushService } from '../../core/push/push.service';
+import { AiService } from '../../core/ai/ai.service';
 import {
   PresenceEvent,
   SocketService,
@@ -39,6 +40,7 @@ export class Home {
   private msgApi = inject(MessageService);
   private media = inject(MediaService);
   private push = inject(PushService);
+  private ai = inject(AiService);
   private router = inject(Router);
   private socket = inject(SocketService);
   readonly theme = inject(ThemeService);
@@ -78,6 +80,12 @@ export class Home {
   recording = signal(false);
   private recorder: MediaRecorder | null = null;
   private recordChunks: Blob[] = [];
+
+  // AI assist (Day 12): summary banner + smart-reply chips, per open conversation
+  summary = signal<string | null>(null);
+  summarizing = signal(false);
+  suggestions = signal<string[]>([]);
+  suggesting = signal(false);
   private threadEl = viewChild<ElementRef<HTMLDivElement>>('threadScroll');
   private stickToBottom = true;
   private loadedConvos = new Set<string>();
@@ -299,6 +307,60 @@ export class Home {
     return key ? this.mediaUrls().get(key) ?? null : null;
   }
 
+  // --- AI assist (Day 12): summarize + smart replies ---
+
+  /** Summarize the open conversation into a dismissible banner. */
+  summarizeThread(): void {
+    const c = this.selected();
+    if (!c || this.summarizing()) return;
+    this.summarizing.set(true);
+    this.ai.summarize(c.id).subscribe({
+      next: (res) => {
+        this.summary.set(res.summary);
+        this.summarizing.set(false);
+      },
+      error: () => {
+        this.error.set('Could not summarize this conversation.');
+        this.summarizing.set(false);
+      },
+    });
+  }
+
+  dismissSummary(): void {
+    this.summary.set(null);
+  }
+
+  /** Fetch smart-reply chips for the open conversation. */
+  loadSuggestions(): void {
+    const c = this.selected();
+    if (!c || this.suggesting()) return;
+    this.suggesting.set(true);
+    this.suggestions.set([]);
+    this.ai.suggestReplies(c.id).subscribe({
+      next: (res) => {
+        this.suggestions.set(res.suggestions ?? []);
+        this.suggesting.set(false);
+      },
+      error: () => {
+        this.error.set('Could not load suggestions.');
+        this.suggesting.set(false);
+      },
+    });
+  }
+
+  /** Tap a suggestion → drop it into the composer (user can edit before sending). */
+  useSuggestion(text: string): void {
+    this.draft.set(text);
+    this.suggestions.set([]);
+  }
+
+  private clearAiState(): void {
+    this.summary.set(null);
+    this.suggestions.set([]);
+    this.summarizing.set(false);
+    this.suggesting.set(false);
+  }
+
   private setStatus(convoId: string, clientMsgId: string, status: ChatMessage['status']): void {
     this.mutate(convoId, (list) =>
       list.map((x) => (x.clientMsgId === clientMsgId ? { ...x, status } : x)),
@@ -435,6 +497,7 @@ export class Home {
   select(c: Conversation): void {
     this.selectedId.set(c.id);
     this.stickToBottom = true;
+    this.clearAiState();
     if (c.type === 'DIRECT') {
       const o = this.other(c);
       if (o) this.convos.presence(o.userId).subscribe((p) => this.updatePresence(p));

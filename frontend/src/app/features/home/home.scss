@@ -164,6 +164,44 @@
     .title { font-weight: 700; font-size: 0.98rem; }
     .sub { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .sub.typing { color: var(--accent); font-style: italic; }
+
+    .ai-btn {
+      margin-left: auto; flex: none;
+      padding: 0.4rem 0.7rem;
+      border: 1px solid var(--border-strong); border-radius: 999px;
+      background: var(--accent-soft); color: var(--accent);
+      font-weight: 600; font-size: 0.78rem; cursor: pointer;
+      &:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+      &:disabled { opacity: 0.6; cursor: default; }
+    }
+  }
+
+  /* AI assist (Day 12) — summary banner + smart-reply chips */
+  .ai-summary {
+    display: flex; align-items: flex-start; gap: 0.55rem;
+    margin: 0.6rem 1.2rem 0;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid var(--accent); border-radius: 12px;
+    background: var(--accent-soft);
+    .ai-icon { flex: none; }
+    p { margin: 0; font-size: 0.85rem; line-height: 1.4; color: var(--text); }
+    .dismiss {
+      margin-left: auto; flex: none;
+      border: none; background: transparent; color: var(--text-muted);
+      cursor: pointer; font-size: 0.85rem;
+    }
+  }
+
+  .ai-suggestions {
+    display: flex; flex-wrap: wrap; gap: 0.4rem;
+    padding: 0.6rem 1.2rem 0;
+    .chip {
+      padding: 0.4rem 0.75rem;
+      border: 1px solid var(--border-strong); border-radius: 999px;
+      background: var(--bg-inset); color: var(--text);
+      font-size: 0.82rem; cursor: pointer;
+      &:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+    }
   }
 
   .thread {
