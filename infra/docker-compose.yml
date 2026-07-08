@@ -32,6 +32,12 @@ x-backend: &backend
     LINKUP_MEDIA_ACCESS_KEY: linkup
     LINKUP_MEDIA_SECRET_KEY: linkup-secret
     LINKUP_MEDIA_BUCKET: linkup-media
+    # AI assist (Day 12): off by default → StubAiAssistant (no key). Pass these from the host to use
+    # a real OpenAI-compatible provider (Groq default): LINKUP_AI_ENABLED=true LINKUP_AI_API_KEY=...
+    LINKUP_AI_ENABLED: ${LINKUP_AI_ENABLED:-false}
+    LINKUP_AI_BASE_URL: ${LINKUP_AI_BASE_URL:-https://api.groq.com/openai/v1}
+    LINKUP_AI_API_KEY: ${LINKUP_AI_API_KEY:-}
+    LINKUP_AI_MODEL: ${LINKUP_AI_MODEL:-llama-3.3-70b-versatile}
     LINKUP_JWT_SECRET: ZGV2LW9ubHktc2VjcmV0LWNoYW5nZS1tZS1pbi1wcm9kdWN0aW9uLTEyMzQ1Ng==
 
 services:
