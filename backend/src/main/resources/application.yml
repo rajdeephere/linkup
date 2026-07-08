@@ -87,6 +87,16 @@ linkup:
       project-id: ${LINKUP_PUSH_FCM_PROJECT_ID:}
       access-token: ${LINKUP_PUSH_FCM_ACCESS_TOKEN:}
 
+  ai:
+    # AI assist (Day 12): thread summarize + smart replies via an OpenAI-compatible chat API.
+    # enabled=false → StubAiAssistant (deterministic, no key, demo-green). Set enabled=true +
+    # LINKUP_AI_API_KEY to use the real provider (Groq default; base-url/model swap for Ollama/OpenAI).
+    enabled: ${LINKUP_AI_ENABLED:false}
+    base-url: ${LINKUP_AI_BASE_URL:https://api.groq.com/openai/v1}
+    api-key: ${LINKUP_AI_API_KEY:}
+    model: ${LINKUP_AI_MODEL:llama-3.3-70b-versatile}
+    max-history: ${LINKUP_AI_MAX_HISTORY:40}
+
 server:
   # 8081 to avoid a native Apache (httpd) already bound to host 8080.
   port: 8081
