@@ -33,6 +33,27 @@ public class StubAiAssistant implements AiAssistant {
         return List.of("Sounds good 👍", "Can you say more about that?", "Let me check and get back to you.");
     }
 
+    // Deterministic keyword moderation so the async pipeline is provable offline with no model.
+    private static final List<String> SPAM =
+            List.of("buy now", "free money", "click here", "crypto giveaway", "scam");
+    private static final List<String> TOXIC =
+            List.of("idiot", "stupid", "shut up", "hate you", "loser");
+
+    @Override
+    public Moderation moderate(String text) {
+        if (text == null || text.isBlank()) {
+            return Moderation.safe();
+        }
+        String t = text.toLowerCase();
+        for (String s : SPAM) {
+            if (t.contains(s)) return Moderation.flag("spam", "Matched spam phrase: \"" + s + "\"");
+        }
+        for (String w : TOXIC) {
+            if (t.contains(w)) return Moderation.flag("harassment", "Matched abusive term: \"" + w + "\"");
+        }
+        return Moderation.safe();
+    }
+
     private static String trim(String s) {
         return s.length() > 60 ? s.substring(0, 60) + "…" : s;
     }

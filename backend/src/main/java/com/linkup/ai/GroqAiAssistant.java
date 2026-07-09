@@ -64,6 +64,24 @@ public class GroqAiAssistant implements AiAssistant {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    public Moderation moderate(String text) {
+        if (text == null || text.isBlank()) {
+            return Moderation.safe();
+        }
+        String system = "You are a content moderator. Classify the message for harassment, hate, "
+                + "threats, or spam. Reply with EXACTLY one line: \"SAFE\", or "
+                + "\"FLAG|<category>|<short reason>\". No other text.";
+        String out = chat(system, "Message: " + text, 60).trim();
+        if (!out.toUpperCase().startsWith("FLAG")) {
+            return Moderation.safe();   // "SAFE", or anything we can't parse → don't over-flag
+        }
+        String[] parts = out.split("\\|", 3);
+        String category = parts.length > 1 ? parts[1].trim() : "flagged";
+        String reason = parts.length > 2 ? parts[2].trim() : "Flagged by moderation";
+        return Moderation.flag(category, reason);
+    }
+
     /** One OpenAI-compatible chat-completions round trip; returns the assistant text (or a fallback). */
     private String chat(String system, String user, int maxTokens) {
         Map<String, Object> body = Map.of(

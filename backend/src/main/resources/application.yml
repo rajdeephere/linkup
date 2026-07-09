@@ -96,6 +96,10 @@ linkup:
     api-key: ${LINKUP_AI_API_KEY:}
     model: ${LINKUP_AI_MODEL:llama-3.3-70b-versatile}
     max-history: ${LINKUP_AI_MAX_HISTORY:40}
+    # Day 13: cache a summary until the thread advances past the summarized seq; cap on-demand AI
+    # calls per user per minute (429 over it). The async `linkup-ai` moderation consumer is separate.
+    rate-limit-per-minute: ${LINKUP_AI_RATE_LIMIT:20}
+    summary-cache-ttl: ${LINKUP_AI_SUMMARY_TTL:PT1H}
 
 server:
   # 8081 to avoid a native Apache (httpd) already bound to host 8080.

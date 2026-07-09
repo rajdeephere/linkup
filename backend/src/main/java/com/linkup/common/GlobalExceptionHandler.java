@@ -62,4 +62,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiError.of(
                 HttpStatus.BAD_REQUEST.value(), "Bad Request", ex.getMessage()));
     }
+
+    @ExceptionHandler(RateLimitedException.class)
+    public ResponseEntity<ApiError> handleRateLimited(RateLimitedException ex) {
+        // Mapped here (not via ResponseStatusException) so the response is returned directly.
+        // sendError() would trigger a servlet ERROR re-dispatch through the security chain — by then
+        // the request is anonymous, and .anyRequest().authenticated() turns 429 into an empty 403.
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(ApiError.of(
+                HttpStatus.TOO_MANY_REQUESTS.value(), "Too Many Requests", ex.getMessage()));
+    }
 }

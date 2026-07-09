@@ -14,4 +14,7 @@ public interface AiAssistant {
 
     /** Up to three short reply options the requesting user could send next. */
     List<String> suggestReplies(List<AiMessage> conversation);
+
+    /** Classify a single message for toxicity/spam (Day 13 — async moderation). */
+    Moderation moderate(String text);
 }
