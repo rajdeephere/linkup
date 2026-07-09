@@ -38,9 +38,9 @@ This is a **distributed-systems** project wearing a chat app's clothes.
 
 | | |
 |---|---|
-| **Phase** | **4 — flagship: AI assist** (Day 12 of 15) · Phases 0–3 complete |
-| **Shipped** | auth · conversations · messaging (`seq`, exactly-once) · optimistic send · history + sync · presence/typing/receipts · multi-pod Redis fan-out (nginx LB) · pod-kill zero-loss · Kafka durable log · backoff+jitter reconnect · graceful drain · direct-to-blob media (MinIO) · push: outbox + Kafka consumer, deduped, FCM drop-in · **⭐ AI assist: thread summarize + smart replies (provider-agnostic OpenAI-compatible; Groq/Ollama drop-in, stub fallback)** · dockerized · light/dark |
-| **Next** | Day 13 — flagship polish, then Day 14–15 deploy & productize |
+| **Phase** | **4 — flagship: AI assist ✅** (Day 13 of 15) · Phases 0–4 complete |
+| **Shipped** | auth · conversations · messaging (`seq`, exactly-once) · optimistic send · history + sync · presence/typing/receipts · multi-pod Redis fan-out (nginx LB) · pod-kill zero-loss · Kafka durable log · backoff+jitter reconnect · graceful drain · direct-to-blob media (MinIO) · push: outbox + Kafka consumer, deduped, FCM drop-in · AI assist: summarize + smart replies (provider-agnostic; Groq/Ollama drop-in, stub fallback) · **⭐ async AI moderation (3rd Kafka consumer) + summary caching + rate-limit** · dockerized · light/dark |
+| **Next** | Day 14–15 — deploy & productize (Phase 5) |
 
 Full milestone table → [`docs/requirement-execution-plan/`](./docs/requirement-execution-plan/).
 

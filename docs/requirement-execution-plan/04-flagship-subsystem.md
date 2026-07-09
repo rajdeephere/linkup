@@ -1,6 +1,6 @@
 # Phase 04 — One flagship subsystem ⭐ (pick ONE, do it well)
 
-**Status:** 🟡 in progress — **AI assist** chosen (Day 12: summarize + smart replies ✅) · **Roadmap:** Days 12–13
+**Status:** ✅ done — **AI assist** (Day 12: summarize + smart replies · Day 13: async moderation + caching + rate-limit) · **Roadmap:** Days 12–13
 
 ## Goal
 Add **one** deep, standout subsystem — done *well*, not three half-built. Each is its own demo and
@@ -22,12 +22,16 @@ them as "future"); don't start a second flagship until the first is solid.
 - [x] The chosen flagship works end-to-end and is demoable. **(Day 12 ✅ — AI summarize + smart replies, `demo:ai`)**
 - [x] Its failure modes are understood. **(AI latency/outage: on-demand only, off the send path; failure degrades to a string, never a 500)**
 
-## As-built (Day 12)
+## As-built (Days 12–13)
 **AI assist**, provider-agnostic via the OpenAI-compatible chat API (Groq default; Ollama/OpenAI =
 base-url + model swap). `AiAssistant` interface with a deterministic `StubAiAssistant` default
-(no key, demo-green) and a real `GroqAiAssistant` drop-in. On-demand only: `POST …/summarize` +
-`POST …/suggest-replies`, membership-checked, media reduced to a marker (no bytes/ids to the model).
-Async moderation (a 3rd Kafka consumer group) is the noted next AI story.
+(no key, demo-green) and a real `GroqAiAssistant` drop-in.
+- **On-demand (Day 12):** `POST …/summarize` + `…/suggest-replies`, membership-checked, media reduced
+  to a marker (no bytes/ids to the model).
+- **Async (Day 13):** moderation via a **3rd Kafka consumer group** (`linkup-ai`) on `message.created`
+  → flags toxic/spam (⚠️ overlay, `GET …/moderation`), idempotent per message.
+- **Polish (Day 13):** seq-keyed summary caching (Redis) + per-user rate limiting (429).
+- **Deferred:** streaming summaries (SSE) — UX-only, not headless-provable.
 
 ## Maps to
 - ADRs depend on choice (0006 / 0007); AI + search have no new ADR (server-side consumers).

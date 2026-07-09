@@ -17,6 +17,7 @@ Why it's done this way · Verify.** Code lives in the app repo (`linkup/backend`
 | [10](./10-day10-media-direct-to-blob.md) | 10 | ⭐ Media: direct-to-blob presigned upload (images + voice notes) | ✅ full |
 | [11](./11-day11-push-notifications.md) | 11 | ⭐ Push: outbox + Kafka consumer, deduped vs in-app (FCM drop-in) | ✅ full |
 | [12](./12-day12-ai-assist.md) | 12 | ⭐ Flagship: AI assist — thread summarize + smart replies (provider-agnostic) | ✅ full |
-| 13+ | 13+ | Flagship polish → deploy & productize | ⬜ per phase |
+| [13](./13-day13-ai-moderation-polish.md) | 13 | ⭐ Flagship polish: async moderation (3rd consumer) + summary caching + rate-limit | ✅ full |
+| 14+ | 14+ | Deploy & productize (Phase 5) | ⬜ per phase |
 
 Outlined runbooks get written in full the moment their feature ships.
