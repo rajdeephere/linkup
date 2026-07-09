@@ -124,6 +124,9 @@
                       <span class="body">{{ m.body }}</span>
                     }
                   }
+                  @if (flagReason(m); as reason) {
+                    <span class="flag" [title]="reason">⚠️ flagged</span>
+                  }
                   @if (isMine(m)) {
                     <span class="status">
                       @switch (m.status) {

@@ -265,6 +265,14 @@
       .media-audio { display: block; width: 240px; max-width: 60vw; height: 40px; }
       .media-loading { font-size: 0.8rem; color: var(--text-muted); }
 
+      // AI moderation flag (Day 13)
+      .flag {
+        align-self: flex-start;
+        font-size: 0.66rem; font-weight: 700;
+        color: var(--danger);
+        cursor: help;
+      }
+
       .status {
         align-self: flex-end;
         font-size: 0.62rem;

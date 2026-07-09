@@ -5,9 +5,15 @@ import { environment } from '../../../environments/environment';
 
 interface SummaryResponse {
   summary: string;
+  cached: boolean;
 }
 interface SuggestRepliesResponse {
   suggestions: string[];
+}
+export interface ModerationFlag {
+  messageId: string;
+  category: string;
+  reason: string;
 }
 
 /**
@@ -30,6 +36,13 @@ export class AiService {
     return this.http.post<SuggestRepliesResponse>(
       `${this.base}/v1/conversations/${conversationId}/suggest-replies`,
       {},
+    );
+  }
+
+  /** Flagged messages in a conversation (Day 13 — moderation overlay). */
+  moderation(conversationId: string): Observable<ModerationFlag[]> {
+    return this.http.get<ModerationFlag[]>(
+      `${this.base}/v1/conversations/${conversationId}/moderation`,
     );
   }
 }

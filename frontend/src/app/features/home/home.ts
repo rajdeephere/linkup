@@ -86,6 +86,8 @@ export class Home {
   summarizing = signal(false);
   suggestions = signal<string[]>([]);
   suggesting = signal(false);
+  // AI moderation (Day 13): messageId → flag reason, for the ⚠️ overlay
+  private flagged = signal<Map<string, string>>(new Map());
   private threadEl = viewChild<ElementRef<HTMLDivElement>>('threadScroll');
   private stickToBottom = true;
   private loadedConvos = new Set<string>();
@@ -354,11 +356,29 @@ export class Home {
     this.suggestions.set([]);
   }
 
+  /** Load moderation flags for the open conversation → ⚠️ overlay (Day 13). */
+  private loadModeration(conversationId: string): void {
+    this.ai.moderation(conversationId).subscribe({
+      next: (flags) => {
+        const map = new Map<string, string>();
+        for (const f of flags) map.set(f.messageId, f.reason);
+        this.flagged.set(map);
+      },
+      error: () => {},
+    });
+  }
+
+  /** The moderation reason for a message, or null if it isn't flagged. */
+  flagReason(m: ChatMessage): string | null {
+    return this.flagged().get(m.id) ?? null;
+  }
+
   private clearAiState(): void {
     this.summary.set(null);
     this.suggestions.set([]);
     this.summarizing.set(false);
     this.suggesting.set(false);
+    this.flagged.set(new Map());
   }
 
   private setStatus(convoId: string, clientMsgId: string, status: ChatMessage['status']): void {
@@ -498,6 +518,7 @@ export class Home {
     this.selectedId.set(c.id);
     this.stickToBottom = true;
     this.clearAiState();
+    this.loadModeration(c.id);
     if (c.type === 'DIRECT') {
       const o = this.other(c);
       if (o) this.convos.presence(o.userId).subscribe((p) => this.updatePresence(p));
