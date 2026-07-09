@@ -11,7 +11,8 @@
     "demo:podkill": "node podkill-zeroloss.demo.cjs",
     "demo:media": "node media-upload.demo.cjs",
     "demo:push": "node push-offline.demo.cjs",
-    "demo:ai": "node ai-assist.demo.cjs"
+    "demo:ai": "node ai-assist.demo.cjs",
+    "demo:moderation": "node moderation.demo.cjs"
   },
   "devDependencies": {
     "@stomp/stompjs": "^7.3.0",

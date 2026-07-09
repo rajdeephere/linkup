@@ -52,13 +52,23 @@ const connect = (t) => new Promise((res) => {
   await sleep(200); say(ac, convo.id, "Fair. Let's add a feature flag and a dry run first.");
   await sleep(700);
 
-  // 1. Summarize
+  // 1. Summarize (first call → freshly generated)
   const sum = await api(`/v1/conversations/${convo.id}/summarize`, {
     method: 'POST', headers: authed(alice.accessToken),
   });
   const summary = sum.body?.summary || '';
-  console.log(`summarize → ${sum.status}`);
+  console.log(`summarize → ${sum.status} (cached=${sum.body?.cached})`);
   console.log(`  summary: "${summary}"`);
+
+  // 1b. Cache: an immediate repeat is served from cache; a new message busts it (Day 13)
+  const sum2 = await api(`/v1/conversations/${convo.id}/summarize`, { method: 'POST', headers: authed(alice.accessToken) });
+  console.log(`summarize again (no new messages) → cached=${sum2.body?.cached}`);
+  say(ac, convo.id, 'One more thing — can we also update the changelog?');
+  await sleep(500);
+  const sum3 = await api(`/v1/conversations/${convo.id}/summarize`, { method: 'POST', headers: authed(alice.accessToken) });
+  console.log(`summarize after a new message → cached=${sum3.body?.cached}`);
+  const cacheOk = sum2.body?.cached === true && sum3.body?.cached === false;
+  console.log(`cache behaves (hit then bust): ${cacheOk ? 'YES' : 'NO'}`);
 
   // 2. Suggest replies
   const sug = await api(`/v1/conversations/${convo.id}/suggest-replies`, {
@@ -70,9 +80,10 @@ const connect = (t) => new Promise((res) => {
 
   ac.deactivate(); bc.deactivate();
   const ok = sum.status === 200 && summary.length > 0
-    && sug.status === 200 && Array.isArray(suggestions) && suggestions.length >= 1;
+    && sug.status === 200 && Array.isArray(suggestions) && suggestions.length >= 1
+    && cacheOk;
   console.log(ok
-    ? '\n✓ AI assist verified — summary returned + smart replies returned (provider-agnostic; stub or Groq)'
+    ? '\n✓ AI assist verified — summary (+ caching) + smart replies (provider-agnostic; stub or Groq)'
     : '\n✗ AI assist did not behave as expected');
   process.exit(ok ? 0 : 1);
 })().catch((e) => { console.error('DEMO ERROR:', e.message); process.exit(1); });

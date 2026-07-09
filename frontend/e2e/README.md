@@ -34,7 +34,8 @@ window with `DEMO_HEADED=1 npm run demo:optimistic`.
 | `podkill-zeroloss.demo.cjs` (`npm run demo:podkill`) | **Pod-kill → zero loss** ⭐ (chaos: `docker kill`s a pod) — bob's pod is killed while alice sends; bob reconnects to the survivor and resyncs via the seq cursor. Restores the pod after. | Day 9 |
 | `media-upload.demo.cjs` (`npm run demo:media`) | **Direct-to-blob media** ⭐ — alice presigns, PUTs an image straight to MinIO (bytes bypass the API), sends a message carrying only the `blobKey`; bob downloads it from storage via a presigned GET and the bytes match. | ADR-0005 · Day 10 |
 | `push-offline.demo.cjs` (`npm run demo:push`) | **Push to offline devices, deduped** ⭐ — carol (offline, token registered) gets a push (outbox SENT) when alice sends; when carol is online the next message pushes **nothing** (in-app covers it); one notification per (message, device). Needs seed user `carol`. | ADR-0008 · Day 11 |
-| `ai-assist.demo.cjs` (`npm run demo:ai`) | **AI assist** ⭐ — alice/bob exchange messages; `POST /summarize` returns a recap and `POST /suggest-replies` returns smart-reply chips. Provider-agnostic (stub by default, no key; real Groq via `LINKUP_AI_ENABLED=true`). | Day 12 |
+| `ai-assist.demo.cjs` (`npm run demo:ai`) | **AI assist** ⭐ — alice/bob exchange messages; `POST /summarize` returns a recap (+ **cache** hit-then-bust) and `POST /suggest-replies` returns smart-reply chips. Provider-agnostic (stub by default, no key; real Groq via `LINKUP_AI_ENABLED=true`). | Day 12–13 |
+| `moderation.demo.cjs` (`npm run demo:moderation`) | **Async AI moderation** ⭐ — the `linkup-ai` Kafka consumer flags an abusive message and leaves a clean one alone (verified via `GET /moderation`). Stub = keyword-based; Groq = model classification. | Day 13 |
 
 It works by **intercepting the WebSocket** (`page.routeWebSocket`) and delaying only the
 server→client echo frame, so the pending window is long enough to see and screenshot.
